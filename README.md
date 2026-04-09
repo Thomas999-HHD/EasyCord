@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-# EasyCord 🎮
+# EasyCord
 
 A developer-friendly Python framework for building Discord bots, built on top of [discord.py 2.x](https://discordpy.readthedocs.io/).
 
@@ -7,22 +6,25 @@ EasyCord keeps the full power of discord.py within reach while removing the boil
 
 ---
 
+## The Backstory
+
+This project wasn't just a coding exercise — it was a solution to a real problem. I founded and managed the Senior IT Program Discord server for my school.
+
+When you're running a live server for a class full of IT students, you need a bot that can scale *now*. I found myself spending too much time on "plumbing" — syncing slash commands, manually handling events, and writing the same permission checks over and over.
+
+The fix: I decided to stop being just a user and started being an architect. EasyCord handles the heavy lifting automatically, so I could move from a "we need this feature" idea to a live, working tool without the usual Discord API headaches.
+
+---
+
 ## Installation
 
+Clone the repo, then install in editable mode (dependencies are declared in `pyproject.toml` and installed automatically):
+
 ```bash
-pip install "discord.py>=2.0"
+git clone https://github.com/your-username/EasyCord.git
+cd EasyCord
+pip install -e .
 ```
-
-Clone or copy the `easycord/` folder into your project (PyPI package coming soon).
-
-Additional documentation lives in `docs/`:
-
-- `docs/index.md`
-- `docs/getting-started.md`
-- `docs/concepts.md`
-- `docs/api.md`
-- `docs/examples.md`
-- `docs/fork-and-expand.md`
 
 ---
 
@@ -37,7 +39,7 @@ bot.use(logging_middleware())
 
 @bot.slash(description="Ping the bot")
 async def ping(ctx):
-    await ctx.respond("Pong! 🏓")
+    await ctx.respond("Pong!")
 
 bot.run("YOUR_TOKEN")
 ```
@@ -52,7 +54,7 @@ DISCORD_TOKEN=your_token_here python my_bot.py
 
 ## Slash Commands
 
-Register slash commands with `@bot.slash`.  Parameters become Discord options automatically — just use type annotations.
+Register slash commands with `@bot.slash`. Parameters become Discord options automatically — just use type annotations.
 
 ```python
 @bot.slash(description="Say hello to someone")
@@ -105,13 +107,13 @@ Multiple handlers for the same event are all called.
 
 ## Middleware
 
-Middleware wraps every slash-command invocation.  Register with `@bot.use` or `bot.use(fn)`.
+Middleware wraps every slash-command invocation. Register with `@bot.use` or `bot.use(fn)`.
 
 ```python
 @bot.use
 async def my_middleware(ctx, next):
     print(f"Before /{ctx.command_name}")
-    await next()          # call the next middleware / command
+    await next()
     print("After")
 ```
 
@@ -128,7 +130,7 @@ from easycord.middleware import (
 )
 
 bot.use(logging_middleware())
-bot.use(error_handler_middleware(message="Something broke 💥"))
+bot.use(error_handler_middleware(message="Something broke"))
 bot.use(rate_limit_middleware(max_calls=5, window_seconds=10))
 bot.use(guild_only_middleware())
 ```
@@ -146,13 +148,12 @@ class FunPlugin(Plugin):
     """Random fun commands."""
 
     async def on_load(self):
-        # Called once when the plugin is registered
         print("FunPlugin ready!")
 
     @slash(description="Roll a dice")
     async def roll(self, ctx, sides: int = 6):
         import random
-        await ctx.respond(f"🎲 {random.randint(1, sides)}")
+        await ctx.respond(f"You rolled {random.randint(1, sides)}")
 
     @on("member_join")
     async def welcome(self, member):
@@ -172,41 +173,58 @@ await bot.unload_plugin(plugin)  # calls plugin.on_unload()
 
 ---
 
+## Per-Guild Config
+
+Skip complex database setup. The built-in `ServerConfigStore` saves server-specific settings to simple JSON files under `.easycord/server-config/`.
+
+```python
+from easycord import ServerConfigStore
+
+store = ServerConfigStore()
+
+cfg = await store.load(guild_id)
+cfg.set_role("moderator", 1234567890)
+cfg.set_channel("logs", 9876543210)
+cfg.set_other("prefix", "!")
+await store.save(cfg)
+```
+
+---
+
+## Expanding with AI
+
+Inside the repo there is a file called `model.md` — a "Single-Source Context Map" designed for AI agents.
+
+Feed an AI the contents of `README.md`, `model.md`, and the `docs/` folder, then prompt:
+
+> "Using the EasyCord framework, write me a new Plugin that adds a [feature] feature."
+
+Drop the resulting file into `server_commands/` and the bot is updated.
+
+---
+
 ## Project Layout
 
 ```
-my_bot/
-├── easycord/               ← framework source
-│   ├── __init__.py
-│   ├── bot.py
-│   ├── context.py
-│   ├── decorators.py
-│   ├── middleware.py
-│   └── plugin.py
-├── server_commands/
-│   ├── fun.py
-│   ├── moderation.py
-│   └── info.py
-├── main.py
-└── requirements.txt
-```
-
-```python
-# main.py
-import os
-from easycord import EasyCord
-from easycord.middleware import logging_middleware, error_handler_middleware
-from server_commands.fun import FunPlugin
-from server_commands.moderation import ModerationPlugin
-
-bot = EasyCord()
-bot.use(logging_middleware())
-bot.use(error_handler_middleware())
-
-bot.load_plugin(FunPlugin())
-bot.load_plugin(ModerationPlugin())
-
-bot.run(os.environ["DISCORD_TOKEN"])
+easycord/               # framework package
+├── __init__.py
+├── bot.py
+├── context.py
+├── decorators.py
+├── middleware.py
+├── plugin.py
+└── server_config.py
+server_commands/        # example bot plugins
+├── fun.py
+├── moderation.py
+├── info.py
+└── config.py
+examples/
+├── basic_bot.py
+└── plugin_bot.py
+docs/
+model.md
+pyproject.toml
 ```
 
 ---
@@ -244,6 +262,41 @@ bot.run(os.environ["DISCORD_TOKEN"])
 | `async on_unload()` | Called when plugin is unloaded |
 | `self.bot` | Back-reference to `EasyCord` |
 
+### `ServerConfig`
+
+| Method | Description |
+|---|---|
+| `set_role(key, role_id)` | Store a role ID under a named key |
+| `get_role(key)` | Retrieve a role ID, or `None` |
+| `has_role(key)` | Return `True` if the key exists |
+| `remove_role(key)` | Delete a role entry |
+| `list_roles()` | Return a copy of all role entries |
+| `clear_roles()` | Remove all role entries |
+| `set_channel(key, channel_id)` | Store a channel ID under a named key |
+| `get_channel(key)` | Retrieve a channel ID, or `None` |
+| `has_channel(key)` | Return `True` if the key exists |
+| `remove_channel(key)` | Delete a channel entry |
+| `list_channels()` | Return a copy of all channel entries |
+| `clear_channels()` | Remove all channel entries |
+| `set_other(key, value)` | Store an arbitrary setting |
+| `get_other(key, default)` | Retrieve a setting, or `default` |
+| `has_other(key)` | Return `True` if the key exists |
+| `remove_other(key)` | Delete a setting |
+| `list_other()` | Return a copy of all other settings |
+| `clear_other()` | Remove all other settings |
+| `reset()` | Wipe all roles, channels, and other settings |
+| `merge(other)` | Merge another `ServerConfig` in, overwriting on collision |
+| `to_dict()` | Return a deep copy of the raw config data |
+
+### `ServerConfigStore`
+
+| Method | Description |
+|---|---|
+| `await store.load(guild_id)` | Load a guild's config; returns empty config if none exists |
+| `await store.save(config)` | Atomically persist a guild's config to disk |
+| `await store.delete(guild_id)` | Remove a guild's config file |
+| `await store.exists(guild_id)` | Return `True` if a config file exists for the guild |
+
 ---
 
 ## Creating a Bot Application
@@ -257,75 +310,16 @@ bot.run(os.environ["DISCORD_TOKEN"])
 DISCORD_TOKEN=your_token python my_bot.py
 ```
 
-> **Global slash commands** can take up to 1 hour to appear in Discord.  
+> **Global slash commands** can take up to 1 hour to appear in Discord.
 > Use `guild_id=YOUR_SERVER_ID` while developing for instant updates.
-=======
-🚀 EasyCord
-A high-level framework for discord.py that actually gets out of your way.
 
-I built EasyCord because I was tired of fighting with boilerplate. It’s a wrapper designed to make bot development faster and a lot less frustrating by automating the repetitive API setup that usually eats up your afternoon.
+---
 
-💡 The Backstory
-This project wasn't just a coding exercise—it was a solution to a real problem. I founded and managed the Senior IT Program Discord server for my school.
+Additional documentation lives in `docs/`:
 
-When you're running a live server for a class full of IT students, you need a bot that can scale now. I found myself spending way too much time on "plumbing"—syncing slash commands, manually handling events, and writing the same permission checks over and over.
-
-The Fix: I decided to stop being just a user and started being an architect. I collaborated with AI tools to design a system that handles the heavy lifting automatically. EasyCord allowed me to move from a "hey, we need this feature" idea to a live, working tool for my school's community without the usual Discord API headaches.
-
-🛠 What it actually does
-1. Fast Slash Commands
-No more manual syncing. EasyCord uses signature rewriting to look at your function arguments and build the Discord UI for you automatically.
-
-Python
-@bot.slash(description="Give someone temporary lab access")
-async def grant_access(ctx, user: discord.Member, hours: int = 4):
-    # EasyCord handles the 'user' and 'hours' types for you.
-    await ctx.respond(f"Access granted to {user.display_name} for {hours}h.")
-2. Clean Middleware
-Stop repeating yourself. Use the middleware chain to wrap every command in a logic layer—perfect for global logging or blocking commands during maintenance.
-
-Python
-@bot.use
-async def simple_logger(ctx, next):
-    print(f"User {ctx.user} ran /{ctx.command_name}")
-    await next() 
-3. Stress-Free Config
-Skip the complex database setup. The built-in ServerConfigStore lets you save server-specific settings (like role IDs or welcome channels) to simple JSON files.
-
-📖 The Docs
-I put together a full docs/ folder to make sure the transition from "cloning the repo" to "running a bot" is as seamless as possible:
-
-getting-started.md: The quick-start guide for your first 5 minutes.
-
-concepts.md: A look under the hood at how the middleware and plugins work.
-
-api.md: The full technical reference for when you need to dig deep.
-
-examples.md: Real-world patterns you can copy and paste.
-
-fork-and-expand.md: A guide on making this project your own.
-
-🤖 Expanding with AI (Even if you don't code)
-One of the coolest things about EasyCord is that it’s AI-native. I wanted my entire IT class to be able to contribute, even the people who weren't Python experts.
-
-Inside the repo, there is a file called model.md. It’s a "Single-Source Context Map" designed specifically for AI agents.
-
-If you have an idea but zero coding knowledge, you can still expand this bot:
-
-Feed the AI: Copy the text from README.md, model.md, and the docs/ folder.
-
-The Prompt: "Hey, using the EasyCord framework, write me a new Plugin that adds a [Your Feature Idea] feature."
-
-The framework is so modular that the AI can write a perfect Plugin file. You just drop it into the server_commands/ folder, and the bot is updated. It makes the project a living tool that anyone can help build.
-
-📂 Layout
-easycord/: The core engine logic.
-
-docs/: The full roadmap (Getting Started, API, Examples).
-
-server_commands/: The actual plugins I used for the Senior IT server.
-
-model.md: The "Cheat Sheet" for expanding the bot with AI.
-
-.easycord/: Where the bot stores your server-specific settings.
->>>>>>> f8fb69da48c9f0ca96dc173a77f2947e0067fe4e
+- [`docs/index.md`](docs/index.md)
+- [`docs/getting-started.md`](docs/getting-started.md)
+- [`docs/concepts.md`](docs/concepts.md)
+- [`docs/api.md`](docs/api.md)
+- [`docs/examples.md`](docs/examples.md)
+- [`docs/fork-and-expand.md`](docs/fork-and-expand.md)

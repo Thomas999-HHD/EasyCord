@@ -10,6 +10,8 @@ Run:
 
 import os
 
+import discord
+
 from easycord import EasyCord
 from easycord.middleware import error_handler_middleware, logging_middleware
 
@@ -44,11 +46,16 @@ async def echo(ctx, message: str, times: int = 1):
 
 
 @bot.slash(description="Show info about a user.")
-async def userinfo(ctx, member: str = None):
-    user = ctx.user
+async def userinfo(ctx, member: discord.Member = None):
+    target = member or ctx.user
+    created = target.created_at.strftime("%Y-%m-%d")
     await ctx.respond_embed(
-        title=f"👤 {user.display_name}",
-        description=f"ID: `{user.id}`\nBot: {user.bot}",
+        title=f"👤 {target.display_name}",
+        description=(
+            f"**ID:** `{target.id}`\n"
+            f"**Account created:** {created}\n"
+            f"**Bot:** {target.bot}"
+        ),
     )
 
 
