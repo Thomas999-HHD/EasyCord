@@ -24,6 +24,7 @@ import json
 import os
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 
 class ServerConfig:
@@ -88,10 +89,10 @@ class ServerConfig:
 
     # ── Other / feature flags ────────────────────────────────
 
-    def set_other(self, key: str, value) -> None:
+    def set_other(self, key: str, value: Any) -> None:
         self._data["other"][key] = value
 
-    def get_other(self, key: str, default=None):
+    def get_other(self, key: str, default: Any = None) -> Any:
         return self._data["other"].get(key, default)
 
     def has_other(self, key: str) -> bool:
@@ -100,7 +101,7 @@ class ServerConfig:
     def remove_other(self, key: str) -> None:
         self._data["other"].pop(key, None)
 
-    def list_other(self) -> dict:
+    def list_other(self) -> dict[str, Any]:
         return dict(self._data["other"])
 
     def clear_other(self) -> None:

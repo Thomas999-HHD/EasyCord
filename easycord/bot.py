@@ -195,7 +195,7 @@ class EasyCord(discord.Client):
                 try:
                     self.tree.remove_command(cmd_name, guild=guild)
                 except Exception:
-                    pass
+                    logger.debug("Could not remove command %r during plugin unload", cmd_name)
 
             if getattr(method, "_easycord_event", False):
                 event = method._easycord_event_name

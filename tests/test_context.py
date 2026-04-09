@@ -1,0 +1,112 @@
+import discord
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+
+from easycord.context import Context
+
+
+@pytest.fixture
+def interaction():
+    m = MagicMock()
+    m.response.send_message = AsyncMock()
+    m.response.defer = AsyncMock()
+    m.followup.send = AsyncMock()
+    m.command.name = "test"
+    return m
+
+
+@pytest.fixture
+def ctx(interaction):
+    return Context(interaction)
+
+
+# --- Properties ---
+
+def test_user_property(ctx, interaction):
+    assert ctx.user is interaction.user
+
+
+def test_guild_property(ctx, interaction):
+    assert ctx.guild is interaction.guild
+
+
+def test_channel_property(ctx, interaction):
+    assert ctx.channel is interaction.channel
+
+
+def test_data_property(ctx, interaction):
+    assert ctx.data is interaction.data
+
+
+def test_command_name(ctx, interaction):
+    interaction.command.name = "ping"
+    assert ctx.command_name == "ping"
+
+
+def test_command_name_no_command(ctx, interaction):
+    interaction.command = None
+    assert ctx.command_name is None
+
+
+# --- respond ---
+
+async def test_respond_first_call_uses_send_message(ctx, interaction):
+    await ctx.respond("Hello", ephemeral=True)
+    interaction.response.send_message.assert_called_once_with(
+        "Hello", ephemeral=True, embed=None
+    )
+    assert ctx._responded is True
+
+
+async def test_respond_second_call_uses_followup(ctx, interaction):
+    await ctx.respond("First")
+    await ctx.respond("Second", ephemeral=True)
+    interaction.followup.send.assert_called_once_with(
+        "Second", ephemeral=True, embed=None
+    )
+    interaction.response.send_message.assert_called_once()
+
+
+async def test_respond_with_embed(ctx, interaction):
+    embed = discord.Embed(title="T")
+    await ctx.respond(embed=embed)
+    interaction.response.send_message.assert_called_once_with(
+        None, ephemeral=False, embed=embed
+    )
+
+
+# --- defer ---
+
+async def test_defer_marks_responded(ctx, interaction):
+    await ctx.defer(ephemeral=True)
+    interaction.response.defer.assert_called_once_with(ephemeral=True)
+    assert ctx._responded is True
+
+
+async def test_defer_then_respond_uses_followup(ctx, interaction):
+    await ctx.defer()
+    await ctx.respond("Late reply")
+    interaction.followup.send.assert_called_once()
+
+
+# --- respond_embed ---
+
+async def test_respond_embed_sends_embed(ctx, interaction):
+    await ctx.respond_embed("Title", "Body")
+    kwargs = interaction.response.send_message.call_args.kwargs
+    embed = kwargs["embed"]
+    assert embed.title == "Title"
+    assert embed.description == "Body"
+    assert kwargs["ephemeral"] is False
+
+
+async def test_respond_embed_custom_color(ctx, interaction):
+    color = discord.Color.red()
+    await ctx.respond_embed("T", color=color)
+    embed = interaction.response.send_message.call_args.kwargs["embed"]
+    assert embed.color == color
+
+
+async def test_respond_embed_ephemeral(ctx, interaction):
+    await ctx.respond_embed("Title", ephemeral=True)
+    assert interaction.response.send_message.call_args.kwargs["ephemeral"] is True

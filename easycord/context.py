@@ -17,16 +17,12 @@ class Context:
         return self.interaction.user
 
     @property
-    def author(self) -> discord.User | discord.Member:
-        return self.interaction.user
-
-    @property
     def guild(self) -> discord.Guild | None:
         return self.interaction.guild
 
     @property
-    def channel(self):
-        return self.interaction.channel
+    def channel(self) -> discord.abc.Messageable | None:
+        return self.interaction.channel  # type: ignore[return-value]
 
     @property
     def command_name(self) -> str | None:
@@ -34,8 +30,8 @@ class Context:
         return cmd.name if cmd is not None else None
 
     @property
-    def data(self):
-        return self.interaction.data
+    def data(self) -> dict | None:
+        return self.interaction.data  # type: ignore[return-value]
 
     # ── Responding ────────────────────────────────────────────
 

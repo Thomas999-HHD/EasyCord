@@ -86,6 +86,6 @@ def error_handler_middleware(
             try:
                 await ctx.respond(message, ephemeral=True)
             except Exception:
-                pass
+                logger.debug("Failed to send error response for /%s", ctx.command_name)
 
     return middleware
