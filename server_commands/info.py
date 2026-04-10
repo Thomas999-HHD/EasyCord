@@ -22,7 +22,7 @@ class InfoPlugin(Plugin):
     @slash(description="Show your profile info.")
     async def me(self, ctx):
         user = ctx.user
-        await ctx.respond_embed(
+        await ctx.send_embed(
             title=f"👤 {user.display_name}",
             description=f"**ID:** `{user.id}`\n**Bot:** {user.bot}",
         )

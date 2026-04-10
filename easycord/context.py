@@ -57,7 +57,7 @@ class Context:
         self._responded = True
         await self.interaction.response.defer(ephemeral=ephemeral)
 
-    async def respond_embed(
+    async def send_embed(
         self,
         title: str,
         description: str | None = None,

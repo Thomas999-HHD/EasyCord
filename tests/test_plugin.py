@@ -35,10 +35,10 @@ def test_slash_decorator_attributes_on_plugin_method():
             pass
 
     p = MyPlugin()
-    assert p.hello._easycord_slash is True
-    assert p.hello._easycord_slash_name == "hello"
-    assert p.hello._easycord_slash_description == "Say hello"
-    assert p.hello._easycord_slash_guild_id == 99
+    assert p.hello._is_slash is True
+    assert p.hello._slash_name == "hello"
+    assert p.hello._slash_desc == "Say hello"
+    assert p.hello._slash_guild == 99
 
 
 def test_on_decorator_attributes_on_plugin_method():
@@ -48,5 +48,5 @@ def test_on_decorator_attributes_on_plugin_method():
             pass
 
     p = MyPlugin()
-    assert p.greet._easycord_event is True
-    assert p.greet._easycord_event_name == "member_join"
+    assert p.greet._is_event is True
+    assert p.greet._event_name == "member_join"

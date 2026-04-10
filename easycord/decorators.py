@@ -19,10 +19,10 @@ def slash(
     """
 
     def decorator(func: Callable) -> Callable:
-        func._easycord_slash = True
-        func._easycord_slash_name = name or func.__name__
-        func._easycord_slash_description = description
-        func._easycord_slash_guild_id = guild_id
+        func._is_slash = True
+        func._slash_name = name or func.__name__
+        func._slash_desc = description
+        func._slash_guild = guild_id
         return func
 
     return decorator
@@ -39,8 +39,8 @@ def on(event: str) -> Callable:
     """
 
     def decorator(func: Callable) -> Callable:
-        func._easycord_event = True
-        func._easycord_event_name = event
+        func._is_event = True
+        func._event_name = event
         return func
 
     return decorator

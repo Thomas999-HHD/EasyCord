@@ -13,12 +13,12 @@ import os
 import discord
 
 from easycord import EasyCord
-from easycord.middleware import error_handler_middleware, logging_middleware
+from easycord.middleware import catch_errors, log_middleware
 
 bot = EasyCord()
 
-bot.use(logging_middleware())
-bot.use(error_handler_middleware())
+bot.use(log_middleware())
+bot.use(catch_errors())
 
 
 @bot.use
@@ -49,7 +49,7 @@ async def echo(ctx, message: str, times: int = 1):
 async def userinfo(ctx, member: discord.Member = None):
     target = member or ctx.user
     created = target.created_at.strftime("%Y-%m-%d")
-    await ctx.respond_embed(
+    await ctx.send_embed(
         title=f"👤 {target.display_name}",
         description=(
             f"**ID:** `{target.id}`\n"
@@ -73,8 +73,6 @@ async def on_member_join(member):
 
 
 if __name__ == "__main__":
-    token = os.environ.get("DISCORD_TOKEN")
-    if not token:
+    if not (token := os.environ.get("DISCORD_TOKEN")):
         raise RuntimeError("Set the DISCORD_TOKEN environment variable.")
     bot.run(token)
-

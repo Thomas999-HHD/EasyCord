@@ -28,23 +28,23 @@ def test_sync_commands_disabled():
 # ── Middleware registration ───────────────────────────────────
 
 
-def test_use_logging_adds_middleware():
-    bot = Composer().use_logging().build()
+def test_log_adds_middleware():
+    bot = Composer().log().build()
     assert len(bot._middleware) == 1
 
 
-def test_use_guild_only_adds_middleware():
-    bot = Composer().use_guild_only().build()
+def test_guild_only_adds_middleware():
+    bot = Composer().guild_only().build()
     assert len(bot._middleware) == 1
 
 
-def test_use_rate_limit_adds_middleware():
-    bot = Composer().use_rate_limit(max_calls=3, window_seconds=5.0).build()
+def test_rate_limit_adds_middleware():
+    bot = Composer().rate_limit(max_calls=3, window_seconds=5.0).build()
     assert len(bot._middleware) == 1
 
 
-def test_use_error_handler_adds_middleware():
-    bot = Composer().use_error_handler().build()
+def test_catch_errors_adds_middleware():
+    bot = Composer().catch_errors().build()
     assert len(bot._middleware) == 1
 
 
@@ -57,14 +57,10 @@ def test_use_custom_middleware():
 
 
 def test_middleware_order_is_preserved():
-    calls = []
-
     async def mw_a(ctx, next):
-        calls.append("a")
         await next()
 
     async def mw_b(ctx, next):
-        calls.append("b")
         await next()
 
     bot = Composer().use(mw_a).use(mw_b).build()
@@ -74,10 +70,10 @@ def test_middleware_order_is_preserved():
 def test_chained_middleware_accumulates():
     bot = (
         Composer()
-        .use_logging()
-        .use_guild_only()
-        .use_rate_limit()
-        .use_error_handler()
+        .log()
+        .guild_only()
+        .rate_limit()
+        .catch_errors()
         .build()
     )
     assert len(bot._middleware) == 4
@@ -116,9 +112,9 @@ def test_all_methods_return_composer():
 
     c = Composer()
     assert c.sync_commands() is c
-    assert c.use_logging() is c
-    assert c.use_guild_only() is c
-    assert c.use_rate_limit() is c
-    assert c.use_error_handler() is c
+    assert c.log() is c
+    assert c.guild_only() is c
+    assert c.rate_limit() is c
+    assert c.catch_errors() is c
     assert c.use(dummy_mw) is c
     assert c.load_plugin(Plugin()) is c

@@ -8,7 +8,7 @@ def test_slash_marks_function():
     async def cmd(ctx):
         pass
 
-    assert cmd._easycord_slash is True
+    assert cmd._is_slash is True
 
 
 def test_slash_uses_function_name_by_default():
@@ -16,7 +16,7 @@ def test_slash_uses_function_name_by_default():
     async def my_command(ctx):
         pass
 
-    assert my_command._easycord_slash_name == "my_command"
+    assert my_command._slash_name == "my_command"
 
 
 def test_slash_custom_name():
@@ -24,7 +24,7 @@ def test_slash_custom_name():
     async def cmd(ctx):
         pass
 
-    assert cmd._easycord_slash_name == "custom"
+    assert cmd._slash_name == "custom"
 
 
 def test_slash_default_description():
@@ -32,7 +32,7 @@ def test_slash_default_description():
     async def cmd(ctx):
         pass
 
-    assert cmd._easycord_slash_description == "No description provided."
+    assert cmd._slash_desc == "No description provided."
 
 
 def test_slash_custom_description():
@@ -40,23 +40,23 @@ def test_slash_custom_description():
     async def cmd(ctx):
         pass
 
-    assert cmd._easycord_slash_description == "Does a thing"
+    assert cmd._slash_desc == "Does a thing"
 
 
-def test_slash_no_guild_id_by_default():
+def test_slash_no_guild_by_default():
     @slash()
     async def cmd(ctx):
         pass
 
-    assert cmd._easycord_slash_guild_id is None
+    assert cmd._slash_guild is None
 
 
-def test_slash_custom_guild_id():
+def test_slash_custom_guild():
     @slash(guild_id=12345)
     async def cmd(ctx):
         pass
 
-    assert cmd._easycord_slash_guild_id == 12345
+    assert cmd._slash_guild == 12345
 
 
 def test_slash_returns_original_function():
@@ -74,7 +74,7 @@ def test_on_marks_function():
     async def handler(msg):
         pass
 
-    assert handler._easycord_event is True
+    assert handler._is_event is True
 
 
 def test_on_stores_event_name():
@@ -82,7 +82,7 @@ def test_on_stores_event_name():
     async def handler(member):
         pass
 
-    assert handler._easycord_event_name == "member_join"
+    assert handler._event_name == "member_join"
 
 
 def test_on_returns_original_function():
@@ -102,5 +102,5 @@ def test_on_different_event_names():
     async def h2(reaction, user):
         pass
 
-    assert h1._easycord_event_name == "message_delete"
-    assert h2._easycord_event_name == "reaction_add"
+    assert h1._event_name == "message_delete"
+    assert h2._event_name == "reaction_add"

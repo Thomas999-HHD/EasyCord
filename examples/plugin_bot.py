@@ -13,26 +13,20 @@ Run:
 import os
 
 from easycord import EasyCord
-from easycord.middleware import (
-    error_handler_middleware,
-    logging_middleware,
-    rate_limit_middleware,
-)
+from easycord.middleware import catch_errors, log_middleware, rate_limit
 from server_commands import FunPlugin, InfoPlugin, ModerationPlugin
 
 bot = EasyCord()
 
-bot.use(logging_middleware())
-bot.use(error_handler_middleware())
-bot.use(rate_limit_middleware(max_calls=5, window_seconds=10))
+bot.use(log_middleware())
+bot.use(catch_errors())
+bot.use(rate_limit(max_calls=5, window_seconds=10))
 
 bot.load_plugin(FunPlugin())
 bot.load_plugin(ModerationPlugin())
 bot.load_plugin(InfoPlugin())
 
 if __name__ == "__main__":
-    token = os.environ.get("DISCORD_TOKEN")
-    if not token:
+    if not (token := os.environ.get("DISCORD_TOKEN")):
         raise RuntimeError("Set the DISCORD_TOKEN environment variable.")
     bot.run(token)
-

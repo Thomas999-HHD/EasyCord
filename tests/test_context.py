@@ -89,10 +89,10 @@ async def test_defer_then_respond_uses_followup(ctx, interaction):
     interaction.followup.send.assert_called_once()
 
 
-# --- respond_embed ---
+# --- send_embed ---
 
-async def test_respond_embed_sends_embed(ctx, interaction):
-    await ctx.respond_embed("Title", "Body")
+async def test_send_embed_sends_embed(ctx, interaction):
+    await ctx.send_embed("Title", "Body")
     kwargs = interaction.response.send_message.call_args.kwargs
     embed = kwargs["embed"]
     assert embed.title == "Title"
@@ -100,13 +100,13 @@ async def test_respond_embed_sends_embed(ctx, interaction):
     assert kwargs["ephemeral"] is False
 
 
-async def test_respond_embed_custom_color(ctx, interaction):
+async def test_send_embed_custom_color(ctx, interaction):
     color = discord.Color.red()
-    await ctx.respond_embed("T", color=color)
+    await ctx.send_embed("T", color=color)
     embed = interaction.response.send_message.call_args.kwargs["embed"]
     assert embed.color == color
 
 
-async def test_respond_embed_ephemeral(ctx, interaction):
-    await ctx.respond_embed("Title", ephemeral=True)
+async def test_send_embed_ephemeral(ctx, interaction):
+    await ctx.send_embed("Title", ephemeral=True)
     assert interaction.response.send_message.call_args.kwargs["ephemeral"] is True

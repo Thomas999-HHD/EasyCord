@@ -4,14 +4,9 @@ import logging
 
 import discord
 
+from . import middleware as _mw
 from .bot import EasyCord
-from .middleware import (
-    MiddlewareFn,
-    error_handler_middleware,
-    guild_only_middleware,
-    logging_middleware,
-    rate_limit_middleware,
-)
+from .middleware import MiddlewareFn
 from .plugin import Plugin
 
 
@@ -28,11 +23,11 @@ class Composer:
 
         bot = (
             Composer()
-            .with_intents(discord.Intents.default())
-            .use_logging()
-            .use_error_handler()
-            .use_rate_limit(max_calls=5, window_seconds=10.0)
-            .use_guild_only()
+            .intents(discord.Intents.default())
+            .log()
+            .catch_errors()
+            .rate_limit(max_calls=5, window_seconds=10.0)
+            .guild_only()
             .load_plugin(ModerationPlugin())
             .load_plugin(FunPlugin())
             .build()
@@ -49,7 +44,7 @@ class Composer:
 
     # ── Bot options ───────────────────────────────────────────
 
-    def with_intents(self, intents: discord.Intents) -> Composer:
+    def intents(self, intents: discord.Intents) -> Composer:
         """Set the Discord gateway intents."""
         self._intents = intents
         return self
@@ -61,35 +56,35 @@ class Composer:
 
     # ── Built-in middleware ───────────────────────────────────
 
-    def use_logging(
+    def log(
         self,
         level: int = logging.INFO,
         fmt: str = "/{command} invoked by {user} in {guild}",
     ) -> Composer:
         """Add the built-in logging middleware."""
-        self._middleware.append(logging_middleware(level=level, fmt=fmt))
+        self._middleware.append(_mw.log_middleware(level=level, fmt=fmt))
         return self
 
-    def use_guild_only(self) -> Composer:
+    def guild_only(self) -> Composer:
         """Add the built-in guild-only guard (blocks DM invocations)."""
-        self._middleware.append(guild_only_middleware())
+        self._middleware.append(_mw.guild_only())
         return self
 
-    def use_rate_limit(
+    def rate_limit(
         self,
         max_calls: int = 5,
         window_seconds: float = 10.0,
     ) -> Composer:
         """Add the built-in per-user sliding-window rate limiter."""
-        self._middleware.append(rate_limit_middleware(max_calls, window_seconds))
+        self._middleware.append(_mw.rate_limit(max_calls, window_seconds))
         return self
 
-    def use_error_handler(
+    def catch_errors(
         self,
         message: str = "Something went wrong. Please try again.",
     ) -> Composer:
         """Add the built-in error-handler middleware."""
-        self._middleware.append(error_handler_middleware(message))
+        self._middleware.append(_mw.catch_errors(message))
         return self
 
     # ── Custom middleware & plugins ───────────────────────────

@@ -15,15 +15,15 @@ from .plugin import Plugin
 logger = logging.getLogger("easycord")
 
 
-def _make_next(
+def _wrap(
     mw: MiddlewareFn,
     ctx: Context,
-    inner: Callable[[], Awaitable[None]],
+    proceed: Callable[[], Awaitable[None]],
 ) -> Callable[[], Awaitable[None]]:
-    async def _next() -> None:
-        await mw(ctx, inner)
-
-    return _next
+    """Bind a middleware function to a context and its inner next-step."""
+    async def step() -> None:
+        await mw(ctx, proceed)
+    return step
 
 
 def _build_chain(
@@ -31,9 +31,10 @@ def _build_chain(
     invoke: Callable[[], Awaitable[None]],
     middleware: list[MiddlewareFn],
 ) -> Callable[[], Awaitable[None]]:
+    """Wrap invoke in the full middleware stack, outermost first."""
     chain = invoke
     for mw in reversed(middleware):
-        chain = _make_next(mw, ctx, chain)
+        chain = _wrap(mw, ctx, chain)
     return chain
 
 
@@ -109,15 +110,10 @@ class EasyCord(discord.Client):
         description: str,
         guild_id: int | None,
     ) -> None:
-        """Register any callable (top-level function or bound plugin method) as a slash command.
-
-        For both cases the first parameter of *func* is ``ctx``; the remaining
-        parameters are inferred by discord.py as slash-command options.
-        """
+        """Register a callable as a slash command in the app-command tree."""
         guild = discord.Object(id=guild_id) if guild_id else None
         sig = inspect.signature(func)
         user_params = list(sig.parameters.values())[1:]  # skip ctx
-        middleware = self._middleware
 
         async def callback(interaction: discord.Interaction, **kwargs) -> None:
             ctx = Context(interaction)
@@ -125,7 +121,7 @@ class EasyCord(discord.Client):
             async def invoke() -> None:
                 await func(ctx, **kwargs)
 
-            await _build_chain(ctx, invoke, middleware)()
+            await _build_chain(ctx, invoke, self._middleware)()
 
         interaction_param = inspect.Parameter(
             "interaction",
@@ -166,16 +162,15 @@ class EasyCord(discord.Client):
         self._plugins.append(plugin)
 
         for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
-            if getattr(method, "_easycord_slash", False):
+            if getattr(method, "_is_slash", False):
                 self._register_slash(
                     method,
-                    name=method._easycord_slash_name,
-                    description=method._easycord_slash_description,
-                    guild_id=method._easycord_slash_guild_id,
+                    name=method._slash_name,
+                    description=method._slash_desc,
+                    guild_id=method._slash_guild,
                 )
-            if getattr(method, "_easycord_event", False):
-                event: str = method._easycord_event_name
-                self._event_handlers.setdefault(event, []).append(method)
+            if getattr(method, "_is_event", False):
+                self._event_handlers.setdefault(method._event_name, []).append(method)
 
         if self.is_ready():
             asyncio.create_task(plugin.on_load())
@@ -188,19 +183,16 @@ class EasyCord(discord.Client):
         self._plugins.remove(plugin)
 
         for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
-            if getattr(method, "_easycord_slash", False):
-                cmd_name: str = method._easycord_slash_name
-                guild_id: int | None = method._easycord_slash_guild_id
-                guild = discord.Object(id=guild_id) if guild_id else None
+            if getattr(method, "_is_slash", False):
+                guild = discord.Object(id=method._slash_guild) if method._slash_guild else None
                 try:
-                    self.tree.remove_command(cmd_name, guild=guild)
+                    self.tree.remove_command(method._slash_name, guild=guild)
                 except Exception:
-                    logger.debug("Could not remove command %r during plugin unload", cmd_name)
+                    logger.debug("Could not remove command %r during unload", method._slash_name)
 
-            if getattr(method, "_easycord_event", False):
-                event = method._easycord_event_name
+            if getattr(method, "_is_event", False):
                 try:
-                    self._event_handlers[event].remove(method)
+                    self._event_handlers[method._event_name].remove(method)
                 except (KeyError, ValueError):
                     pass
 
