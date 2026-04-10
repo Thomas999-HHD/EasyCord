@@ -9,6 +9,8 @@ def slash(
     *,
     description: str = "No description provided.",
     guild_id: int | None = None,
+    permissions: list[str] | None = None,
+    cooldown: float | None = None,
 ) -> Callable:
     """Mark a Plugin method as a slash command.
 
@@ -19,15 +21,25 @@ def slash(
     description:
         Short description shown in the Discord command picker.
     guild_id:
-        Register the command in one specific server only. Useful during
-        development because server commands update instantly (global commands
-        can take up to 1 hour).
+        Register to one specific server only (instant; global takes up to 1 hour).
+    permissions:
+        List of ``discord.Permissions`` attribute names required to run the command
+        (e.g. ``["kick_members"]``). Responds ephemerally and skips the command if
+        any are missing.
+    cooldown:
+        Per-user cooldown in seconds. Blocks the command ephemerally until the
+        window expires.
 
     Example::
 
         class MyPlugin(Plugin):
 
-            @slash(description="Roll a dice")
+            @slash(description="Kick a member", permissions=["kick_members"])
+            async def kick(self, ctx, member: discord.Member):
+                await member.kick()
+                await ctx.respond(f"Kicked {member.display_name}.")
+
+            @slash(description="Roll a dice", cooldown=5)
             async def roll(self, ctx, sides: int = 6):
                 import random
                 await ctx.respond(f"You rolled {random.randint(1, sides)}!")
@@ -38,6 +50,8 @@ def slash(
         func._slash_name = name or func.__name__
         func._slash_desc = description
         func._slash_guild = guild_id
+        func._slash_permissions = permissions
+        func._slash_cooldown = cooldown
         return func
 
     return decorator

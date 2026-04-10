@@ -1,21 +1,4 @@
-"""
-easycord/server_config.py
-~~~~~~~~~~~~~~~~~~~~~~~~~
-Per-guild configuration store backed by JSON files.
-
-Usage::
-
-    from easycord import ServerConfigStore
-
-    store = ServerConfigStore()
-
-    cfg = await store.load(guild_id)
-    cfg.set_role("moderator", 1234567890)
-    cfg.set_channel("logs", 9876543210)
-    cfg.set_other("prefix", "!")
-    await store.save(cfg)
-"""
-
+"""Per-guild configuration store backed by JSON files."""
 from __future__ import annotations
 
 import asyncio
@@ -27,87 +10,112 @@ from pathlib import Path
 from typing import Any
 
 
-class ServerConfig:
-    """Holds configuration for a single guild."""
+class ServerConfig:  # pylint: disable=too-many-public-methods
+    """Holds configuration for a single guild.
+
+    Usage::
+
+        cfg = await store.load(guild_id)
+        cfg.set_role("moderator", 1234567890)
+        cfg.set_channel("logs", 9876543210)
+        cfg.set_other("prefix", "!")
+        await store.save(cfg)
+    """
 
     _SCHEMA: dict = {"roles": {}, "channels": {}, "other": {}}
-
-    @staticmethod
-    def _normalize(data: object) -> dict:
-        """Return a valid config dict, filling in any missing top-level keys."""
-        if not isinstance(data, dict):
-            return copy.deepcopy(ServerConfig._SCHEMA)
-        return {
-            "roles": dict(data.get("roles") or {}),
-            "channels": dict(data.get("channels") or {}),
-            "other": dict(data.get("other") or {}),
-        }
 
     def __init__(self, guild_id: int, data: dict | None = None) -> None:
         self.guild_id = guild_id
         self._data: dict = self._normalize(data)
 
-    # ── Roles ────────────────────────────────────────────────
+    @staticmethod
+    def _normalize(data: object) -> dict:
+        if not isinstance(data, dict):
+            return copy.deepcopy(ServerConfig._SCHEMA)
+        return {k: dict(data.get(k) or {}) for k in ("roles", "channels", "other")}
+
+    def _s(self, section: str) -> dict:
+        return self._data[section]
+
+    # ── Roles ─────────────────────────────────────────────────
 
     def set_role(self, key: str, role_id: int) -> None:
-        self._data["roles"][key] = role_id
+        """Store a role ID under a named key."""
+        self._s("roles")[key] = role_id
 
     def get_role(self, key: str) -> int | None:
-        return self._data["roles"].get(key)
+        """Return the role ID for a key, or ``None``."""
+        return self._s("roles").get(key)
 
     def has_role(self, key: str) -> bool:
-        return key in self._data["roles"]
+        """Return ``True`` if the key exists."""
+        return key in self._s("roles")
 
     def remove_role(self, key: str) -> None:
-        self._data["roles"].pop(key, None)
+        """Delete a role entry (no-op if missing)."""
+        self._s("roles").pop(key, None)
 
     def list_roles(self) -> dict[str, int]:
-        return dict(self._data["roles"])
+        """Return a copy of all role entries."""
+        return dict(self._s("roles"))
 
     def clear_roles(self) -> None:
-        self._data["roles"].clear()
+        """Remove all role entries."""
+        self._s("roles").clear()
 
-    # ── Channels ─────────────────────────────────────────────
+    # ── Channels ──────────────────────────────────────────────
 
     def set_channel(self, key: str, channel_id: int) -> None:
-        self._data["channels"][key] = channel_id
+        """Store a channel ID under a named key."""
+        self._s("channels")[key] = channel_id
 
     def get_channel(self, key: str) -> int | None:
-        return self._data["channels"].get(key)
+        """Return the channel ID for a key, or ``None``."""
+        return self._s("channels").get(key)
 
     def has_channel(self, key: str) -> bool:
-        return key in self._data["channels"]
+        """Return ``True`` if the key exists."""
+        return key in self._s("channels")
 
     def remove_channel(self, key: str) -> None:
-        self._data["channels"].pop(key, None)
+        """Delete a channel entry (no-op if missing)."""
+        self._s("channels").pop(key, None)
 
     def list_channels(self) -> dict[str, int]:
-        return dict(self._data["channels"])
+        """Return a copy of all channel entries."""
+        return dict(self._s("channels"))
 
     def clear_channels(self) -> None:
-        self._data["channels"].clear()
+        """Remove all channel entries."""
+        self._s("channels").clear()
 
-    # ── Other / feature flags ────────────────────────────────
+    # ── Other ─────────────────────────────────────────────────
 
     def set_other(self, key: str, value: Any) -> None:
-        self._data["other"][key] = value
+        """Store an arbitrary setting under a named key."""
+        self._s("other")[key] = value
 
     def get_other(self, key: str, default: Any = None) -> Any:
-        return self._data["other"].get(key, default)
+        """Return the setting for a key, or ``default``."""
+        return self._s("other").get(key, default)
 
     def has_other(self, key: str) -> bool:
-        return key in self._data["other"]
+        """Return ``True`` if the key exists."""
+        return key in self._s("other")
 
     def remove_other(self, key: str) -> None:
-        self._data["other"].pop(key, None)
+        """Delete an other setting (no-op if missing)."""
+        self._s("other").pop(key, None)
 
     def list_other(self) -> dict[str, Any]:
-        return dict(self._data["other"])
+        """Return a copy of all other settings."""
+        return dict(self._s("other"))
 
     def clear_other(self) -> None:
-        self._data["other"].clear()
+        """Remove all other settings."""
+        self._s("other").clear()
 
-    # ── Bulk helpers ─────────────────────────────────────────
+    # ── Bulk ──────────────────────────────────────────────────
 
     def reset(self) -> None:
         """Wipe all roles, channels, and other settings."""
@@ -115,9 +123,8 @@ class ServerConfig:
 
     def merge(self, other: ServerConfig) -> None:
         """Merge another config into this one. Existing keys are overwritten."""
-        self._data["roles"].update(other._data["roles"])
-        self._data["channels"].update(other._data["channels"])
-        self._data["other"].update(other._data["other"])
+        for section, values in other.to_dict().items():
+            self._s(section).update(values)
 
     def to_dict(self) -> dict:
         """Return a deep copy of the config data."""
@@ -125,12 +132,10 @@ class ServerConfig:
 
 
 class ServerConfigStore:
-    """
-    Loads and saves per-guild config as JSON files.
+    """Loads and saves per-guild config as JSON files.
 
     Files are written under ``base_dir/<guild_id>.json``.
-    Saves are atomic (write-to-temp + rename) and protected by
-    per-guild async locks.
+    Saves are atomic (write-to-temp + rename) and protected by per-guild locks.
     """
 
     def __init__(self, base_dir: str = ".easycord/server-config") -> None:
@@ -149,8 +154,7 @@ class ServerConfigStore:
                 return ServerConfig(guild_id)
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                return ServerConfig(guild_id, data)
+                    return ServerConfig(guild_id, json.load(f))
             except (json.JSONDecodeError, OSError) as exc:
                 raise RuntimeError(
                     f"Failed to load config for guild {guild_id}: {exc}"
@@ -171,7 +175,7 @@ class ServerConfigStore:
                 ) from exc
 
     async def delete(self, guild_id: int) -> None:
-        """Remove a guild's config file entirely."""
+        """Remove a guild's config file."""
         async with self._locks[guild_id]:
             path = self._path(guild_id)
             if path.exists():

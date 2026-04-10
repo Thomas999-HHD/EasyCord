@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import time
 from typing import Awaitable, Callable
 
 import discord
@@ -108,14 +109,32 @@ class Bot(discord.Client):
         *,
         description: str = "No description provided.",
         guild_id: int | None = None,
+        permissions: list[str] | None = None,
+        cooldown: float | None = None,
     ) -> Callable:
         """Decorator that registers a top-level slash command.
 
+        Parameters
+        ----------
+        permissions:
+            List of ``discord.Permissions`` attribute names the invoking member
+            must have (e.g. ``["kick_members", "ban_members"]``). Responds with
+            an ephemeral error and skips the command if any are missing.
+        cooldown:
+            Per-user cooldown in seconds. The command is blocked ephemerally
+            until the window expires.
+
         Example::
 
-            @bot.slash(description="Say hello")
-            async def hello(ctx, name: str):
-                await ctx.respond(f"Hello, {name}!")
+            @bot.slash(description="Kick a member", permissions=["kick_members"])
+            async def kick(ctx, member: discord.Member):
+                await member.kick()
+                await ctx.respond(f"Kicked {member.display_name}.")
+
+            @bot.slash(description="Roll dice", cooldown=5)
+            async def roll(ctx):
+                import random
+                await ctx.respond(str(random.randint(1, 6)))
         """
 
         def decorator(func: Callable) -> Callable:
@@ -124,6 +143,8 @@ class Bot(discord.Client):
                 name=name or func.__name__,
                 description=description,
                 guild_id=guild_id,
+                permissions=permissions,
+                cooldown=cooldown,
             )
             return func
 
@@ -136,6 +157,8 @@ class Bot(discord.Client):
         name: str,
         description: str,
         guild_id: int | None,
+        permissions: list[str] | None = None,
+        cooldown: float | None = None,
     ) -> None:
         """Register a callable as a slash command in discord.py's app-command tree.
 
@@ -147,10 +170,52 @@ class Bot(discord.Client):
         sig = inspect.signature(func)
         user_params = list(sig.parameters.values())[1:]  # skip ctx (or self for bound methods)
 
+        _cooldown_last_used: dict[int, float] = {}
+
         async def callback(interaction: discord.Interaction, **kwargs) -> None:
             ctx = Context(interaction)
 
             async def invoke() -> None:
+                # ── Permission check ──────────────────────────────
+                if permissions:
+                    if not ctx.guild:
+                        await ctx.respond(
+                            "This command can only be used inside a server.",
+                            ephemeral=True,
+                        )
+                        return
+                    member = ctx.guild.get_member(ctx.user.id)
+                    if not member:
+                        await ctx.respond(
+                            "Could not verify your permissions.", ephemeral=True
+                        )
+                        return
+                    missing = [
+                        p for p in permissions
+                        if not getattr(member.guild_permissions, p, False)
+                    ]
+                    if missing:
+                        await ctx.respond(
+                            f"You need the following permission(s): "
+                            f"{', '.join(missing)}.",
+                            ephemeral=True,
+                        )
+                        return
+
+                # ── Per-command cooldown ──────────────────────────
+                if cooldown is not None:
+                    uid = ctx.user.id
+                    now = time.monotonic()
+                    remaining = cooldown - (now - _cooldown_last_used.get(uid, 0.0))
+                    if remaining > 0:
+                        await ctx.respond(
+                            f"This command is on cooldown. "
+                            f"Try again in {remaining:.1f}s.",
+                            ephemeral=True,
+                        )
+                        return
+                    _cooldown_last_used[uid] = now
+
                 await func(ctx, **kwargs)
 
             await _build_chain(ctx, invoke, self._middleware)()
@@ -224,6 +289,8 @@ class Bot(discord.Client):
                     name=method._slash_name,
                     description=method._slash_desc,
                     guild_id=method._slash_guild,
+                    permissions=getattr(method, "_slash_permissions", None),
+                    cooldown=getattr(method, "_slash_cooldown", None),
                 )
             if getattr(method, "_is_event", False):
                 self._event_handlers.setdefault(method._event_name, []).append(method)

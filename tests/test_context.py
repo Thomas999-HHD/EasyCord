@@ -144,3 +144,39 @@ async def test_send_embed_no_footer_by_default(ctx, interaction):
     await ctx.send_embed("T")
     embed = interaction.response.send_message.call_args.kwargs["embed"]
     assert not embed.footer.text
+
+
+# --- dm ---
+
+async def test_dm_calls_user_send(ctx, interaction):
+    interaction.user.send = AsyncMock()
+    await ctx.dm("Hello!")
+    interaction.user.send.assert_called_once_with("Hello!", embed=None)
+
+
+async def test_dm_passes_kwargs(ctx, interaction):
+    interaction.user.send = AsyncMock()
+    embed = discord.Embed(title="T")
+    await ctx.dm(embed=embed)
+    interaction.user.send.assert_called_once_with(None, embed=embed)
+
+
+# --- send_to ---
+
+async def test_send_to_uses_cached_channel(ctx, interaction):
+    mock_channel = MagicMock()
+    mock_channel.send = AsyncMock()
+    interaction.client.get_channel = MagicMock(return_value=mock_channel)
+    await ctx.send_to(999, "hi")
+    interaction.client.get_channel.assert_called_once_with(999)
+    mock_channel.send.assert_called_once_with("hi")
+
+
+async def test_send_to_fetches_when_not_cached(ctx, interaction):
+    mock_channel = MagicMock()
+    mock_channel.send = AsyncMock()
+    interaction.client.get_channel = MagicMock(return_value=None)
+    interaction.client.fetch_channel = AsyncMock(return_value=mock_channel)
+    await ctx.send_to(999, "hi")
+    interaction.client.fetch_channel.assert_called_once_with(999)
+    mock_channel.send.assert_called_once_with("hi")

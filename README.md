@@ -73,6 +73,28 @@ async def test(ctx):
     await ctx.respond("This only shows up in one server.")
 ```
 
+### Permission guards
+
+Declare required permissions directly on the command — EasyCord checks them automatically and responds ephemerally if they're missing.
+
+```python
+@bot.slash(description="Kick a member", permissions=["kick_members"])
+async def kick(ctx, member: discord.Member):
+    await member.kick()
+    await ctx.respond(f"Kicked {member.display_name}.")
+```
+
+### Per-command cooldowns
+
+Rate-limit individual commands per user without any global middleware.
+
+```python
+@bot.slash(description="Roll dice", cooldown=5)
+async def roll(ctx):
+    import random
+    await ctx.respond(str(random.randint(1, 6)))
+```
+
 ### Context helpers
 
 ```python
@@ -86,7 +108,9 @@ async def my_command(ctx):
     await ctx.respond("hidden", ephemeral=True)
     await ctx.send_embed("Title", "Description", color=discord.Color.red())
     await ctx.send_embed("Stats", fields=[("Members", "150"), ("Online", "42")], footer="just now")
-    await ctx.defer()  # for slow operations — respond within 15 minutes
+    await ctx.defer()           # for slow operations — respond within 15 minutes
+    await ctx.dm("Private!")    # slide into the user's DMs
+    await ctx.send_to(CHANNEL_ID, "Cross-channel message")
 ```
 
 ---
@@ -262,7 +286,7 @@ pyproject.toml
 
 | Method | Description |
 |---|---|
-| `bot.slash(name, *, description, guild_id)` | Decorator — register a slash command |
+| `bot.slash(name, *, description, guild_id, permissions, cooldown)` | Decorator — register a slash command |
 | `bot.on(event)` | Decorator — register an event handler |
 | `bot.use(middleware)` | Register a middleware function |
 | `bot.add_plugin(plugin)` | Load a `Plugin` instance |
@@ -294,6 +318,8 @@ pyproject.toml
 | `await ctx.respond(...)` | Send a reply |
 | `await ctx.defer(...)` | Acknowledge (15-min window) |
 | `await ctx.send_embed(title, description, *, fields, footer, ...)` | Build and send an embed — `fields` is a list of `(name, value)` or `(name, value, inline)` tuples |
+| `await ctx.dm(content, ...)` | Send a DM to the invoking user |
+| `await ctx.send_to(channel_id, content, ...)` | Send a message to any channel by ID |
 
 ### `Plugin`
 

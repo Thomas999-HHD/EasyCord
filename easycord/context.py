@@ -1,3 +1,4 @@
+"""Context object wrapping discord.Interaction with a simple response API."""
 from __future__ import annotations
 
 import discord
@@ -133,3 +134,45 @@ class Context:
         if footer:
             embed.set_footer(text=footer)
         await self.respond(embed=embed, ephemeral=ephemeral, **kwargs)
+
+    async def dm(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ) -> None:
+        """Send a direct message to the user who invoked the command.
+
+        Example::
+
+            @bot.slash(description="Send yourself a reminder")
+            async def remind(ctx, message: str):
+                await ctx.dm(f"Reminder: {message}")
+                await ctx.respond("Reminder sent!", ephemeral=True)
+        """
+        await self.user.send(content, embed=embed, **kwargs)
+
+    async def send_to(
+        self,
+        channel_id: int,
+        content: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Send a message to any channel by ID.
+
+        Looks up the channel from the client cache first; falls back to a
+        Discord API fetch if it is not cached.
+
+        Example::
+
+            @bot.slash(description="Post to the logs channel")
+            async def log(ctx, message: str):
+                await ctx.send_to(LOG_CHANNEL_ID, f"**Log:** {message}")
+                await ctx.respond("Posted.", ephemeral=True)
+        """
+        channel = (
+            self.interaction.client.get_channel(channel_id)
+            or await self.interaction.client.fetch_channel(channel_id)
+        )
+        await channel.send(content, **kwargs)

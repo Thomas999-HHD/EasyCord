@@ -226,3 +226,111 @@ def test_dispatch_calls_multiple_handlers(bot):
         bot.dispatch("evt")
 
     assert mock_task.call_count == 2
+
+
+# ── permissions ───────────────────────────────────────────────────────────────
+
+def _make_interaction(*, guild=True, has_perm=True):
+    """Build a minimal mock interaction for permission/cooldown tests."""
+    interaction = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    interaction.command.name = "test"
+    interaction.user.id = 42
+
+    if guild:
+        member = MagicMock()
+        member.guild_permissions.kick_members = has_perm
+        interaction.guild = MagicMock()
+        interaction.guild.get_member = MagicMock(return_value=member)
+    else:
+        interaction.guild = None
+
+    return interaction
+
+
+async def test_permissions_allows_when_member_has_perm(bot):
+    invoked = []
+
+    async def on_cmd(*_):
+        invoked.append(True)
+
+    bot.slash(description="test", permissions=["kick_members"])(on_cmd)
+    callback = bot.tree.add_command.call_args[0][0].callback
+    await callback(_make_interaction(has_perm=True))
+    assert invoked
+
+
+async def test_permissions_blocks_when_missing(bot):
+    async def on_cmd(*_):
+        pass
+
+    bot.slash(description="test", permissions=["kick_members"])(on_cmd)
+    interaction = _make_interaction(has_perm=False)
+    callback = bot.tree.add_command.call_args[0][0].callback
+    await callback(interaction)
+
+    msg = interaction.response.send_message.call_args[0][0]
+    assert "kick_members" in msg
+    assert interaction.response.send_message.call_args.kwargs.get("ephemeral") is True
+
+
+async def test_permissions_blocks_in_dm(bot):
+    async def on_cmd(*_):
+        pass
+
+    bot.slash(description="test", permissions=["kick_members"])(on_cmd)
+    interaction = _make_interaction(guild=False)
+    callback = bot.tree.add_command.call_args[0][0].callback
+    await callback(interaction)
+
+    interaction.response.send_message.assert_called_once()
+    assert interaction.response.send_message.call_args.kwargs.get("ephemeral") is True
+
+
+# ── per-command rate limit ────────────────────────────────────────────────────
+
+async def test_rate_limit_per_command_allows_first_call(bot):
+    invoked = []
+
+    async def on_cmd(*_):
+        invoked.append(True)
+
+    bot.slash(description="test", cooldown=10.0)(on_cmd)
+    callback = bot.tree.add_command.call_args[0][0].callback
+    await callback(_make_interaction())
+    assert invoked
+
+
+async def test_rate_limit_per_command_blocks_second_call(bot):
+    async def on_cmd(*_):
+        pass
+
+    bot.slash(description="test", cooldown=10.0)(on_cmd)
+    callback = bot.tree.add_command.call_args[0][0].callback
+    interaction = _make_interaction()
+    await callback(interaction)
+    await callback(interaction)
+
+    assert interaction.response.send_message.call_count == 1
+    msg = interaction.response.send_message.call_args[0][0]
+    assert "cooldown" in msg.lower()
+
+
+async def test_rate_limit_per_command_independent_per_user(bot):
+    invoked = []
+
+    async def on_cmd(ctx):
+        invoked.append(ctx.user.id)
+
+    bot.slash(description="test", cooldown=10.0)(on_cmd)
+    callback = bot.tree.add_command.call_args[0][0].callback
+
+    i1 = _make_interaction()
+    i1.user.id = 1
+    i2 = _make_interaction()
+    i2.user.id = 2
+
+    await callback(i1)
+    await callback(i2)
+
+    assert invoked == [1, 2]

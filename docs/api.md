@@ -14,19 +14,27 @@ This reference is derived from the actual EasyCord source in this codebase.
 
 ### Slash commands
 
-`Bot.slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None) -> Callable`
+`Bot.slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None, permissions: list[str] | None = None, cooldown: float | None = None) -> Callable`
 
 Decorator that registers a top-level slash command.
 
 - **name**: defaults to the function name.
 - **description**: shown in Discord UI.
-- **guild_id**:
-  - `None` registers globally
-  - `int` registers to a specific guild (instant)
+- **guild_id**: `None` registers globally; `int` registers to one guild (instant).
+- **permissions**: list of `discord.Permissions` attribute names required (e.g. `["kick_members"]`). Responds ephemerally and skips the command if any are missing.
+- **cooldown**: per-user cooldown in seconds. Blocks ephemerally until the window expires.
 
-Handler shape:
+```python
+@bot.slash(description="Kick a member", permissions=["kick_members"])
+async def kick(ctx, member: discord.Member):
+    await member.kick()
+    await ctx.respond(f"Kicked {member.display_name}.")
 
-- `async def cmd(ctx, ...)`
+@bot.slash(description="Roll dice", cooldown=5)
+async def roll(ctx):
+    import random
+    await ctx.respond(str(random.randint(1, 6)))
+```
 
 ### Events
 
