@@ -12,19 +12,19 @@ Run:
 
 import os
 
-from easycord import EasyCord
+from easycord import Bot
 from easycord.middleware import catch_errors, log_middleware, rate_limit
 from server_commands import FunPlugin, InfoPlugin, ModerationPlugin
 
-bot = EasyCord()
+bot = Bot()
 
 bot.use(log_middleware())
 bot.use(catch_errors())
-bot.use(rate_limit(max_calls=5, window_seconds=10))
+bot.use(rate_limit(limit=5, window=10))
 
-bot.load_plugin(FunPlugin())
-bot.load_plugin(ModerationPlugin())
-bot.load_plugin(InfoPlugin())
+bot.add_plugin(FunPlugin())
+bot.add_plugin(ModerationPlugin())
+bot.add_plugin(InfoPlugin())
 
 if __name__ == "__main__":
     if not (token := os.environ.get("DISCORD_TOKEN")):

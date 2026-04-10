@@ -1,5 +1,7 @@
+"""Built-in middleware factories for EasyCord bots."""
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from collections import defaultdict
@@ -46,8 +48,8 @@ def guild_only() -> MiddlewareFn:
 
 
 def rate_limit(
-    max_calls: int = 5,
-    window_seconds: float = 10.0,
+    limit: int = 5,
+    window: float = 10.0,
 ) -> MiddlewareFn:
     """Per-user sliding-window rate limiter."""
     _history: dict[int, list[float]] = defaultdict(list)
@@ -55,11 +57,11 @@ def rate_limit(
     async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
         uid = ctx.user.id
         now = time.monotonic()
-        cutoff = now - window_seconds
+        cutoff = now - window
         _history[uid] = [t for t in _history[uid] if t > cutoff]
 
-        if len(_history[uid]) >= max_calls:
-            wait = window_seconds - (now - _history[uid][0])
+        if len(_history[uid]) >= limit:
+            wait = window - (now - _history[uid][0])
             await ctx.respond(
                 f"You're being rate limited. Try again in {wait:.1f}s.",
                 ephemeral=True,
@@ -81,11 +83,9 @@ def catch_errors(
     async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
         try:
             await proceed()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — intentional broad catch for error handler
             logger.exception("Unhandled error in /%s: %s", ctx.command_name, exc)
-            try:
+            with contextlib.suppress(Exception):
                 await ctx.respond(message, ephemeral=True)
-            except Exception:
-                logger.debug("Failed to send error response for /%s", ctx.command_name)
 
     return handler

@@ -73,7 +73,7 @@ async def test_guild_only_blocks_dm(ctx, interaction):
 # --- rate_limit ---
 
 async def test_rate_limit_allows_within_limit(interaction):
-    mw = rate_limit(max_calls=3, window_seconds=10.0)
+    mw = rate_limit(limit=3, window=10.0)
     next_fn = AsyncMock()
     for _ in range(3):
         c = Context(interaction)
@@ -82,7 +82,7 @@ async def test_rate_limit_allows_within_limit(interaction):
 
 
 async def test_rate_limit_blocks_when_exceeded(interaction):
-    mw = rate_limit(max_calls=2, window_seconds=10.0)
+    mw = rate_limit(limit=2, window=10.0)
     next_fn = AsyncMock()
     for _ in range(2):
         await mw(Context(interaction), next_fn)
@@ -97,7 +97,7 @@ async def test_rate_limit_blocks_when_exceeded(interaction):
 
 
 async def test_rate_limit_independent_per_user(interaction):
-    mw = rate_limit(max_calls=1, window_seconds=10.0)
+    mw = rate_limit(limit=1, window=10.0)
 
     user_a = MagicMock()
     user_a.id = 10

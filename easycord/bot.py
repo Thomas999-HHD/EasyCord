@@ -38,7 +38,7 @@ def _build_chain(
     return chain
 
 
-class EasyCord(discord.Client):
+class Bot(discord.Client):
     """
     A discord.Client subclass with slash commands, middleware, events, and plugins.
 
@@ -46,20 +46,20 @@ class EasyCord(discord.Client):
     ----------
     intents:
         Passed to ``discord.Client``. Defaults to ``discord.Intents.default()``.
-    sync_commands:
-        If ``True`` (default), ``setup_hook`` calls ``await tree.sync()``.
+    auto_sync:
+        If ``True`` (default), slash commands are synced with Discord on startup.
     """
 
     def __init__(
         self,
         *,
         intents: discord.Intents | None = None,
-        sync_commands: bool = True,
+        auto_sync: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
         self.tree = app_commands.CommandTree(self)
-        self._sync_commands = sync_commands
+        self._auto_sync = auto_sync
         self._middleware: list[MiddlewareFn] = []
         self._event_handlers: dict[str, list[Callable]] = {}
         self._plugins: list[Plugin] = []
@@ -67,7 +67,7 @@ class EasyCord(discord.Client):
     # ── Lifecycle ─────────────────────────────────────────────
 
     async def setup_hook(self) -> None:
-        if self._sync_commands:
+        if self._auto_sync:
             await self.tree.sync()
         for plugin in self._plugins:
             await plugin.on_load()
@@ -156,8 +156,8 @@ class EasyCord(discord.Client):
 
     # ── Plugins ───────────────────────────────────────────────
 
-    def load_plugin(self, plugin: Plugin) -> None:
-        """Load a plugin, registering its slash commands and event handlers."""
+    def add_plugin(self, plugin: Plugin) -> None:
+        """Add a plugin, registering its slash commands and event handlers."""
         plugin._bot = self
         self._plugins.append(plugin)
 
@@ -175,8 +175,8 @@ class EasyCord(discord.Client):
         if self.is_ready():
             asyncio.create_task(plugin.on_load())
 
-    async def unload_plugin(self, plugin: Plugin) -> None:
-        """Unload a plugin, removing its commands and event handlers."""
+    async def remove_plugin(self, plugin: Plugin) -> None:
+        """Remove a plugin, deregistering its commands and event handlers."""
         if plugin not in self._plugins:
             raise ValueError("Plugin is not loaded.")
 

@@ -12,21 +12,21 @@ import os
 
 import discord
 
-from easycord import EasyCord
+from easycord import Bot
 from easycord.middleware import catch_errors, log_middleware
 
-bot = EasyCord()
+bot = Bot()
 
 bot.use(log_middleware())
 bot.use(catch_errors())
 
 
 @bot.use
-async def timing_middleware(ctx, next):
+async def timing_middleware(ctx, proceed):
     import time
 
     start = time.monotonic()
-    await next()
+    await proceed()
     elapsed = (time.monotonic() - start) * 1000
     print(f"  /{ctx.command_name} finished in {elapsed:.1f}ms")
 

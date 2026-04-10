@@ -2,13 +2,13 @@ import discord
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from easycord import EasyCord, Plugin
+from easycord import Bot, Plugin
 from easycord.decorators import slash, on as ec_on
 
 
 @pytest.fixture
 def bot():
-    """EasyCord instance with discord.Client internals mocked out."""
+    """Bot instance with discord.Client internals mocked out."""
     mock_tree = MagicMock()
     mock_tree.add_command = MagicMock()
     mock_tree.remove_command = MagicMock()
@@ -16,7 +16,7 @@ def bot():
 
     with patch("discord.Client.__init__", return_value=None), \
          patch("easycord.bot.app_commands.CommandTree", return_value=mock_tree):
-        b = EasyCord(intents=MagicMock(), sync_commands=False)
+        b = Bot(intents=MagicMock(), auto_sync=False)
         b.is_ready = MagicMock(return_value=False)
         return b
 
@@ -24,24 +24,24 @@ def bot():
 # ── use ───────────────────────────────────────────────────────────────────────
 
 def test_use_appends_middleware(bot):
-    async def mw(ctx, next_fn):
-        await next_fn()
+    async def mw(ctx, proceed):
+        await proceed()
 
     bot.use(mw)
     assert mw in bot._middleware
 
 
 def test_use_returns_middleware(bot):
-    async def mw(ctx, next_fn):
-        await next_fn()
+    async def mw(ctx, proceed):
+        await proceed()
 
     result = bot.use(mw)
     assert result is mw
 
 
 def test_multiple_middleware_preserved_in_order(bot):
-    async def mw1(ctx, next_fn): pass
-    async def mw2(ctx, next_fn): pass
+    async def mw1(ctx, _proceed): pass
+    async def mw2(ctx, _proceed): pass
 
     bot.use(mw1)
     bot.use(mw2)
@@ -106,35 +106,35 @@ def test_slash_guild_scoped(bot):
     assert kwargs["guild"].id == 12345
 
 
-# ── load_plugin ───────────────────────────────────────────────────────────────
+# ── add_plugin ────────────────────────────────────────────────────────────────
 
-def test_load_plugin_registers_slash_commands(bot):
+def test_add_plugin_registers_slash_commands(bot):
     class MyPlugin(Plugin):
         @slash(description="Hello")
         async def hello(self, ctx):
             pass
 
     plugin = MyPlugin()
-    bot.load_plugin(plugin)
+    bot.add_plugin(plugin)
 
     assert plugin in bot._plugins
     assert plugin._bot is bot
     bot.tree.add_command.assert_called_once()
 
 
-def test_load_plugin_registers_event_handlers(bot):
+def test_add_plugin_registers_event_handlers(bot):
     class MyPlugin(Plugin):
         @ec_on("member_join")
         async def greet(self, member):
             pass
 
     plugin = MyPlugin()
-    bot.load_plugin(plugin)
+    bot.add_plugin(plugin)
 
     assert plugin.greet in bot._event_handlers.get("member_join", [])
 
 
-def test_load_multiple_plugins(bot):
+def test_add_multiple_plugins(bot):
     class PluginA(Plugin):
         @slash(description="A")
         async def cmd_a(self, ctx): pass
@@ -143,54 +143,54 @@ def test_load_multiple_plugins(bot):
         @slash(description="B")
         async def cmd_b(self, ctx): pass
 
-    bot.load_plugin(PluginA())
-    bot.load_plugin(PluginB())
+    bot.add_plugin(PluginA())
+    bot.add_plugin(PluginB())
 
     assert bot.tree.add_command.call_count == 2
     assert len(bot._plugins) == 2
 
 
-# ── unload_plugin ─────────────────────────────────────────────────────────────
+# ── remove_plugin ─────────────────────────────────────────────────────────────
 
-async def test_unload_plugin_removes_command(bot):
+async def test_remove_plugin_removes_command(bot):
     class MyPlugin(Plugin):
         @slash(description="cmd")
         async def my_cmd(self, ctx):
             pass
 
     plugin = MyPlugin()
-    bot.load_plugin(plugin)
-    await bot.unload_plugin(plugin)
+    bot.add_plugin(plugin)
+    await bot.remove_plugin(plugin)
 
     assert plugin not in bot._plugins
     bot.tree.remove_command.assert_called_once_with("my_cmd", guild=None)
 
 
-async def test_unload_plugin_removes_event_handler(bot):
+async def test_remove_plugin_removes_event_handler(bot):
     class MyPlugin(Plugin):
         @ec_on("member_join")
         async def greet(self, member):
             pass
 
     plugin = MyPlugin()
-    bot.load_plugin(plugin)
-    await bot.unload_plugin(plugin)
+    bot.add_plugin(plugin)
+    await bot.remove_plugin(plugin)
 
     assert plugin.greet not in bot._event_handlers.get("member_join", [])
 
 
-async def test_unload_plugin_not_loaded_raises(bot):
+async def test_remove_plugin_not_loaded_raises(bot):
     with pytest.raises(ValueError, match="Plugin is not loaded"):
-        await bot.unload_plugin(Plugin())
+        await bot.remove_plugin(Plugin())
 
 
-async def test_unload_plugin_calls_on_unload(bot):
+async def test_remove_plugin_calls_on_unload(bot):
     plugin = Plugin()
     plugin.on_unload = AsyncMock()
     plugin._bot = bot
     bot._plugins.append(plugin)
 
-    await bot.unload_plugin(plugin)
+    await bot.remove_plugin(plugin)
     plugin.on_unload.assert_called_once()
 
 
