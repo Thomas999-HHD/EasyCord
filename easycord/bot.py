@@ -82,6 +82,7 @@ class Bot(discord.Client):
         self._middleware: list[MiddlewareFn] = []
         self._event_handlers: dict[str, list[Callable]] = {}
         self._plugins: list[Plugin] = []
+        self._task_handles: dict[int, list[asyncio.Task]] = {}
 
     # ── Lifecycle ─────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ class Bot(discord.Client):
             await self.tree.sync()
         for plugin in self._plugins:
             await plugin.on_load()
+            self._start_plugin_tasks(plugin)
 
     async def on_ready(self) -> None:
         logger.info("Logged in as %s (ID: %s)", self.user, self.user.id)  # type: ignore[union-attr]
@@ -99,7 +101,12 @@ class Bot(discord.Client):
         # Snapshot the list so handlers that modify _event_handlers mid-loop
         # don't cause a RuntimeError or silently skip handlers.
         for handler in list(self._event_handlers.get(event, [])):
-            asyncio.create_task(handler(*args, **kwargs))
+            task = asyncio.create_task(handler(*args, **kwargs))
+            task.add_done_callback(self._log_task_exception)
+
+    def _log_task_exception(self, task: asyncio.Task) -> None:
+        if not task.cancelled() and (exc := task.exception()):
+            logger.exception("Unhandled error in event handler task", exc_info=exc)
 
     # ── Slash commands ────────────────────────────────────────
 
@@ -150,23 +157,14 @@ class Bot(discord.Client):
 
         return decorator
 
-    def _register_slash(
+    def _build_slash_callback(
         self,
         func: Callable,
         *,
-        name: str,
-        description: str,
-        guild_id: int | None,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
-    ) -> None:
-        """Register a callable as a slash command in discord.py's app-command tree.
-
-        Works for both plain functions (@bot.slash) and bound plugin methods
-        (@slash inside a Plugin). In both cases the first parameter is ctx;
-        discord.py infers the remaining typed parameters as command options.
-        """
-        guild = discord.Object(id=guild_id) if guild_id else None
+    ) -> Callable:
+        """Build a discord.py-compatible callback with permission and cooldown guards."""
         sig = inspect.signature(func)
         user_params = list(sig.parameters.values())[1:]  # skip ctx (or self for bound methods)
 
@@ -228,6 +226,21 @@ class Bot(discord.Client):
         callback.__signature__ = sig.replace(
             parameters=[interaction_param] + user_params
         )
+        return callback
+
+    def _register_slash(
+        self,
+        func: Callable,
+        *,
+        name: str,
+        description: str,
+        guild_id: int | None,
+        permissions: list[str] | None = None,
+        cooldown: float | None = None,
+    ) -> None:
+        """Register a callable as a slash command in discord.py's app-command tree."""
+        guild = discord.Object(id=guild_id) if guild_id else None
+        callback = self._build_slash_callback(func, permissions=permissions, cooldown=cooldown)
         self.tree.add_command(
             app_commands.Command(name=name, description=description, callback=callback),
             guild=guild,
@@ -244,8 +257,14 @@ class Bot(discord.Client):
             async def welcome(member):
                 await member.send("Welcome!")
         """
+        if not isinstance(event, str) or not event:
+            raise ValueError("event name must be a non-empty string")
 
         def decorator(func: Callable) -> Callable:
+            if not callable(func):
+                raise TypeError(
+                    f"event handler must be callable, got {type(func).__name__!r}"
+                )
             self._event_handlers.setdefault(event, []).append(func)
             return func
 
@@ -264,6 +283,10 @@ class Bot(discord.Client):
                 await proceed()
                 print("after")
         """
+        if not callable(middleware):
+            raise TypeError(
+                f"middleware must be callable, got {type(middleware).__name__!r}"
+            )
         self._middleware.append(middleware)
         return middleware
 
@@ -272,8 +295,13 @@ class Bot(discord.Client):
     def add_plugin(self, plugin: Plugin) -> None:
         """Add a plugin, registering all of its slash commands and event handlers.
 
+        Raises ``TypeError`` if ``plugin`` is not a :class:`Plugin` instance.
         Raises ``ValueError`` if the same plugin instance has already been added.
         """
+        if not isinstance(plugin, Plugin):
+            raise TypeError(
+                f"expected a Plugin instance, got {type(plugin).__name__!r}"
+            )
         if plugin in self._plugins:
             raise ValueError(
                 f"{type(plugin).__name__} is already added to this bot. "
@@ -297,6 +325,7 @@ class Bot(discord.Client):
 
         if self.is_ready():
             asyncio.create_task(plugin.on_load())
+            self._start_plugin_tasks(plugin)
 
     async def remove_plugin(self, plugin: Plugin) -> None:
         """Remove a plugin, deregistering its commands and event handlers.
@@ -325,7 +354,91 @@ class Bot(discord.Client):
                 except (KeyError, ValueError):
                     pass
 
+        # Cancel background tasks
+        for handle in self._task_handles.pop(id(plugin), []):
+            handle.cancel()
+            try:
+                await handle
+            except asyncio.CancelledError:
+                pass
+
         await plugin.on_unload()
+
+    def _start_plugin_tasks(self, plugin: Plugin) -> None:
+        """Start all @task-decorated methods for a plugin."""
+        handles = []
+        for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
+            if getattr(method, "_is_task", False):
+                handle = asyncio.create_task(
+                    self._run_task(method, method._task_interval)
+                )
+                handles.append(handle)
+        if handles:
+            self._task_handles[id(plugin)] = handles
+
+    @staticmethod
+    async def _run_task(method: Callable, interval: float) -> None:
+        """Run a plugin task method in a loop, sleeping between calls."""
+        while True:
+            try:
+                await method()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Error in task %r", getattr(method, "__name__", method))
+            await asyncio.sleep(interval)
+
+    # ── Subcommand groups ──────────────────────────────────────
+
+    def add_group(self, group: SlashGroup) -> None:  # type: ignore[name-defined]
+        """Register a SlashGroup as a discord subcommand namespace.
+
+        Example::
+
+            class ModGroup(SlashGroup, name="mod", description="Moderation commands"):
+
+                @slash(description="Kick a member", permissions=["kick_members"])
+                async def kick(self, ctx, member: discord.Member):
+                    await member.kick()
+                    await ctx.respond(f"Kicked {member.display_name}.")
+
+            bot.add_group(ModGroup())
+        """
+        if group in self._plugins:
+            raise ValueError(
+                f"{type(group).__name__} is already added to this bot."
+            )
+        group._bot = self
+        self._plugins.append(group)
+
+        discord_group = app_commands.Group(
+            name=group._group_name,
+            description=group._group_description,
+        )
+
+        for _, method in inspect.getmembers(group, predicate=inspect.ismethod):
+            if getattr(method, "_is_slash", False):
+                callback = self._build_slash_callback(
+                    method,
+                    permissions=getattr(method, "_slash_permissions", None),
+                    cooldown=getattr(method, "_slash_cooldown", None),
+                )
+                discord_group.add_command(
+                    app_commands.Command(
+                        name=method._slash_name,
+                        description=method._slash_desc,
+                        callback=callback,
+                    )
+                )
+            if getattr(method, "_is_event", False):
+                self._event_handlers.setdefault(method._event_name, []).append(method)
+
+        guild = discord.Object(id=group._group_guild) if group._group_guild else None
+        self.tree.add_command(discord_group, guild=guild)
+
+        if self.is_ready():
+            asyncio.create_task(group.on_load())
+            self._start_plugin_tasks(group)
 
     # ── Run ───────────────────────────────────────────────────
 
@@ -333,3 +446,8 @@ class Bot(discord.Client):
         """Configure basic logging and start the bot."""
         logging.basicConfig(level=logging.INFO)
         super().run(token, **kwargs)
+
+
+# Imported here to avoid a circular import at module level while still allowing
+# the type annotation in add_group to resolve at runtime.
+from .group import SlashGroup  # noqa: E402

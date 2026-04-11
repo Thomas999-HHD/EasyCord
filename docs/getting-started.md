@@ -2,22 +2,52 @@
 
 ## Create a bot application
 
-1. Create an application in the Discord Developer Portal.
-2. Create a bot user and copy the token.
-3. Invite the bot with OAuth scopes:
-   - `bot`
-   - `applications.commands`
-4. Enable any intents you need (for example, member join events).
+1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Under **Bot**, copy the token and enable any intents you need (e.g. "Server Members Intent" for `member_join` events).
+3. Under **OAuth2 → URL Generator**, select the `bot` and `applications.commands` scopes, then invite the bot to your server.
 
-## Running a bot locally
+## Installation
 
-Set your token in an environment variable (recommended):
+```bash
+git clone https://github.com/rolling-codes/EasyCord.git
+cd EasyCord
+pip install -e .
+```
+
+## Running a bot
+
+Set your token via environment variable:
 
 ```bash
 DISCORD_TOKEN=your_token_here python my_bot.py
 ```
 
 ## Minimal bot
+
+**discord.py** — set up a client subclass, build a command tree, sync in `setup_hook`.
+
+```python
+import discord
+from discord import app_commands
+
+class MyClient(discord.Client):
+    def __init__(self):
+        super().__init__(intents=discord.Intents.default())
+        self.tree = app_commands.CommandTree(self)
+
+    async def setup_hook(self):
+        await self.tree.sync()
+
+client = MyClient()
+
+@client.tree.command(name="ping", description="Ping the bot")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong!")
+
+client.run("TOKEN")
+```
+
+**EasyCord** — `Bot` handles the tree, sync, and interaction wrapping for you.
 
 ```python
 import os
@@ -29,39 +59,71 @@ bot = Bot()
 async def ping(ctx):
     await ctx.respond("Pong!")
 
-if __name__ == "__main__":
-    bot.run(os.environ["DISCORD_TOKEN"])
+bot.run(os.environ["DISCORD_TOKEN"])
+```
+
+## Adding middleware and plugins
+
+**discord.py** — no built-in middleware concept. You implement cross-cutting concerns (logging, rate limits, error handling) inside each command or via `Cog` check methods.
+
+**EasyCord** — register middleware once, it runs for every slash command automatically.
+
+```python
+from easycord import Bot, Composer
+from easycord.middleware import log_middleware, catch_errors, rate_limit
+
+# Option A: imperative
+bot = Bot()
+bot.use(log_middleware())
+bot.use(catch_errors())
+bot.use(rate_limit(limit=5, window=10))
+bot.add_plugin(MyPlugin())
+
+# Option B: fluent builder
+bot = (
+    Composer()
+    .log()
+    .catch_errors()
+    .rate_limit(limit=5, window=10)
+    .add_plugin(MyPlugin())
+    .build()
+)
+
+bot.run(os.environ["DISCORD_TOKEN"])
 ```
 
 ## Project layout (recommended)
 
-EasyCord works well with a simple “core + plugins” structure:
-
 ```
 my_bot/
-├── easycord/            # EasyCord framework source (vendored)
+├── easycord/            # EasyCord framework source
 ├── plugins/
 │   ├── fun.py
 │   └── moderation.py
 ├── main.py
-└── requirements.txt
+└── pyproject.toml
 ```
 
-In `main.py`, you typically:
+In `main.py`:
 
-- create `Bot()`
-- register middleware (`bot.use(...)`)
-- load plugins (`bot.add_plugin(...)`)
-- call `bot.run(token)`
+```python
+import os
+from easycord import Bot
+from plugins.fun import FunPlugin
+from plugins.moderation import ModerationPlugin
 
-## Command syncing behavior
+bot = Bot()
+bot.add_plugin(FunPlugin())
+bot.add_plugin(ModerationPlugin())
+bot.run(os.environ["DISCORD_TOKEN"])
+```
 
-By default, `Bot(auto_sync=True)` syncs the global slash command tree in `setup_hook()`.
+## Command syncing
 
-- **Global commands** may take up to ~1 hour to appear.
-- During development, prefer `guild_id=...` (see below) for instant visibility.
+By default, `Bot(auto_sync=True)` syncs the global slash command tree in `setup_hook`.
 
-### Development tip: guild-only commands
+- **Global commands** can take up to ~1 hour to appear in Discord.
+- During development, use `guild_id=YOUR_SERVER_ID` for instant updates:
 
 ```python
 @bot.slash(description="Dev-only test", guild_id=123456789012345678)
@@ -71,5 +133,4 @@ async def test(ctx):
 
 ## Logging
 
-`Bot.run()` configures basic logging and then delegates to `discord.Client.run()`. You can configure logging yourself before calling `run()` if you want different formatting/handlers.
-
+`Bot.run()` configures basic logging and delegates to `discord.Client.run()`. Configure logging yourself before calling `run()` if you want custom formatting or handlers.

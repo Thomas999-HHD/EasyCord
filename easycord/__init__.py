@@ -16,20 +16,25 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
+from .audit import AuditLog
 from .bot import Bot
 from .composer import Composer
 from .context import Context
-from .decorators import on, slash
+from .decorators import on, slash, task
+from .group import SlashGroup
 from .plugin import Plugin
 from .server_config import ServerConfig, ServerConfigStore
 
 __all__ = [
+    "AuditLog",
     "Bot",
     "Composer",
     "Context",
     "Plugin",
+    "SlashGroup",
     "slash",
     "on",
+    "task",
     "ServerConfig",
     "ServerConfigStore",
 ]

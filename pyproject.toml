@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "1.195"
-description = "A developer-friendly Python framework for building Discord bots on top of discord.py"
+version = "1.196"
+description = "Decorator-first Discord bot framework — slash commands, permissions, cooldowns, embeds, and per-guild config in a fraction of the discord.py code"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

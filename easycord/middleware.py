@@ -52,6 +52,10 @@ def rate_limit(
     window: float = 10.0,
 ) -> MiddlewareFn:
     """Per-user sliding-window rate limiter."""
+    if limit < 1:
+        raise ValueError("rate_limit: limit must be at least 1")
+    if window <= 0:
+        raise ValueError("rate_limit: window must be greater than 0")
     _history: dict[int, list[float]] = defaultdict(list)
 
     async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:

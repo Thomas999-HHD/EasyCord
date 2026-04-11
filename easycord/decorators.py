@@ -57,6 +57,37 @@ def slash(
     return decorator
 
 
+def task(
+    *,
+    seconds: float = 0,
+    minutes: float = 0,
+    hours: float = 0,
+) -> Callable:
+    """Mark a Plugin method as a repeating background task.
+
+    The task starts automatically when the plugin is loaded and stops when
+    the plugin is unloaded. The interval is the sum of the time arguments.
+
+    Example::
+
+        class StatusPlugin(Plugin):
+
+            @task(minutes=5)
+            async def update_status(self):
+                await self.bot.change_presence(activity=discord.Game("Running..."))
+    """
+    interval = seconds + minutes * 60.0 + hours * 3600.0
+    if interval <= 0:
+        raise ValueError("task interval must be greater than zero")
+
+    def decorator(func: Callable) -> Callable:
+        func._is_task = True
+        func._task_interval = interval
+        return func
+
+    return decorator
+
+
 def on(event: str) -> Callable:
     """Mark a Plugin method as an event handler.
 
