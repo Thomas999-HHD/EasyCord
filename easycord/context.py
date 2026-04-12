@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import types as _types
 
 import discord
@@ -373,3 +374,404 @@ class Context:
         view.add_item(next_btn)
 
         await self.respond(**_kw(0), ephemeral=ephemeral, view=view)
+
+    async def choose(
+        self,
+        prompt: str,
+        options: list[str | dict],
+        *,
+        timeout: float = 60,
+        placeholder: str = "Select an option",
+        ephemeral: bool = False,
+    ) -> str | None:
+        """Show a select-menu prompt and return the chosen value, or ``None`` on timeout.
+
+        ``options`` may be a list of strings or dicts with ``label``, ``value``,
+        and optional ``description`` keys.
+
+        Example::
+
+            choice = await ctx.choose("Pick a color", ["Red", "Green", "Blue"])
+            if choice:
+                await ctx.respond(f"You picked {choice}!")
+        """
+        future: asyncio.Future[str | None] = asyncio.get_running_loop().create_future()
+        _fut = future
+
+        select_options = []
+        for opt in options:
+            if isinstance(opt, str):
+                select_options.append(discord.SelectOption(label=opt, value=opt))
+            else:
+                select_options.append(discord.SelectOption(
+                    label=opt.get("label", str(opt)),
+                    value=opt.get("value", opt.get("label", str(opt))),
+                    description=opt.get("description"),
+                ))
+
+        class _ChooseView(discord.ui.View):
+            @discord.ui.select(placeholder=placeholder, options=select_options)
+            async def select_menu(self, interaction: discord.Interaction, select: discord.ui.Select) -> None:
+                await interaction.response.edit_message(view=discord.ui.View())
+                if not _fut.done():
+                    _fut.set_result(select.values[0])
+                self.stop()
+
+            async def on_timeout(self) -> None:
+                if not _fut.done():
+                    _fut.set_result(None)
+
+        view = _ChooseView(timeout=timeout)
+        await self.respond(prompt, ephemeral=ephemeral, view=view)
+        return await future
+
+    # ── Moderation ────────────────────────────────────────────
+
+    async def kick(self, member: discord.Member, *, reason: str | None = None) -> None:
+        """Kick a member from the server.
+
+        Example::
+
+            @bot.slash(description="Kick a member", permissions=["kick_members"])
+            async def kick(ctx, member: discord.Member, reason: str = "No reason"):
+                await ctx.kick(member, reason=reason)
+                await ctx.respond(f"Kicked {member.display_name}.", ephemeral=True)
+        """
+        await member.kick(reason=reason)
+
+    async def ban(
+        self,
+        member: discord.Member,
+        *,
+        reason: str | None = None,
+        delete_message_days: int = 0,
+    ) -> None:
+        """Ban a member from the server.
+
+        Parameters
+        ----------
+        delete_message_days:
+            Number of days of the member's messages to delete (0–7).
+        """
+        await member.ban(reason=reason, delete_message_days=delete_message_days)
+
+    async def timeout(
+        self,
+        member: discord.Member,
+        duration: float,
+        *,
+        reason: str | None = None,
+    ) -> None:
+        """Temporarily mute a member. ``duration`` is in seconds.
+
+        Example::
+
+            await ctx.timeout(member, 300, reason="Spamming")  # 5-minute timeout
+        """
+        until = discord.utils.utcnow() + datetime.timedelta(seconds=duration)
+        await member.timeout(until, reason=reason)
+
+    async def unban(self, user: discord.User, *, reason: str | None = None) -> None:
+        """Unban a user from the server by their User object.
+
+        Example::
+
+            user = await bot.fetch_user(user_id)
+            await ctx.unban(user, reason="Appeal accepted")
+        """
+        if self.guild is None:
+            raise RuntimeError("unban requires a guild context")
+        await self.guild.unban(user, reason=reason)
+
+    async def set_nickname(
+        self,
+        member: discord.Member,
+        nickname: str | None,
+        *,
+        reason: str | None = None,
+    ) -> None:
+        """Set or clear a member's server nickname. Pass ``None`` to reset to default.
+
+        Example::
+
+            await ctx.set_nickname(member, "Cool Person")
+            await ctx.set_nickname(member, None)  # reset
+        """
+        await member.edit(nick=nickname, reason=reason)
+
+    async def move_member(
+        self,
+        member: discord.Member,
+        channel_id: int | None,
+        *,
+        reason: str | None = None,
+    ) -> None:
+        """Move a member to a voice channel by ID, or disconnect them (pass ``None``).
+
+        Example::
+
+            await ctx.move_member(member, AFK_CHANNEL_ID)
+            await ctx.move_member(member, None)  # disconnect
+        """
+        if channel_id is None:
+            await member.edit(voice_channel=None, reason=reason)
+        else:
+            channel = self.interaction.client.get_channel(channel_id)
+            if not isinstance(channel, discord.VoiceChannel):
+                raise ValueError(f"Channel {channel_id} is not a voice channel or was not found")
+            await member.edit(voice_channel=channel, reason=reason)
+
+    # ── Role management ───────────────────────────────────────
+
+    def _resolve_role(self, role_id: int) -> discord.Role:
+        """Return a Role from this guild by ID, raising clear errors if not found."""
+        if self.guild is None:
+            raise RuntimeError("This method requires a guild context")
+        role = self.guild.get_role(role_id)
+        if role is None:
+            raise ValueError(f"Role {role_id} not found in this server")
+        return role
+
+    async def add_role(
+        self,
+        member: discord.Member,
+        role_id: int,
+        *,
+        reason: str | None = None,
+    ) -> None:
+        """Add a role to a member by role ID.
+
+        Example::
+
+            await ctx.add_role(member, VERIFIED_ROLE_ID)
+        """
+        await member.add_roles(self._resolve_role(role_id), reason=reason)
+
+    async def remove_role(
+        self,
+        member: discord.Member,
+        role_id: int,
+        *,
+        reason: str | None = None,
+    ) -> None:
+        """Remove a role from a member by role ID.
+
+        Example::
+
+            await ctx.remove_role(member, MUTED_ROLE_ID)
+        """
+        await member.remove_roles(self._resolve_role(role_id), reason=reason)
+
+    async def create_role(
+        self,
+        name: str,
+        *,
+        color: discord.Color = discord.Color.default(),
+        hoist: bool = False,
+        mentionable: bool = False,
+        reason: str | None = None,
+    ) -> discord.Role:
+        """Create a new role in the server and return it.
+
+        Example::
+
+            role = await ctx.create_role("VIP", color=discord.Color.gold(), hoist=True, mentionable=True)
+            await ctx.add_role(member, role.id)
+        """
+        if self.guild is None:
+            raise RuntimeError("create_role requires a guild context")
+        return await self.guild.create_role(
+            name=name, color=color, hoist=hoist, mentionable=mentionable, reason=reason
+        )
+
+    async def delete_role(self, role_id: int, *, reason: str | None = None) -> None:
+        """Delete a role from the server by role ID.
+
+        Example::
+
+            await ctx.delete_role(OLD_ROLE_ID, reason="Role retired")
+        """
+        await self._resolve_role(role_id).delete(reason=reason)
+
+    # ── Message management ────────────────────────────────────
+
+    async def purge(self, limit: int = 10) -> int:
+        """Bulk-delete recent messages in the current channel. Returns count deleted.
+
+        Example::
+
+            @bot.slash(description="Clear messages", permissions=["manage_messages"])
+            async def clear(ctx, count: int = 10):
+                deleted = await ctx.purge(count)
+                await ctx.respond(f"Deleted {deleted} messages.", ephemeral=True)
+        """
+        if not isinstance(self.channel, discord.TextChannel):
+            raise RuntimeError("purge can only be used in a text channel")
+        deleted = await self.channel.purge(limit=limit)
+        return len(deleted)
+
+    async def send_file(
+        self,
+        path: str,
+        *,
+        filename: str | None = None,
+        content: str | None = None,
+        ephemeral: bool = False,
+    ) -> None:
+        """Send a file attachment as the command response.
+
+        Example::
+
+            @bot.slash(description="Send the log file")
+            async def logs(ctx):
+                await ctx.send_file("bot.log", content="Here are the logs:")
+        """
+        file = discord.File(path, filename=filename)
+        await self.respond(content, file=file, ephemeral=ephemeral)
+
+    # ── Threads & history ─────────────────────────────────────
+
+    async def create_thread(
+        self,
+        name: str,
+        *,
+        auto_archive_minutes: int = 1440,
+        reason: str | None = None,
+    ) -> discord.Thread:
+        """Create a public thread in the current channel and return it.
+
+        ``auto_archive_minutes`` must be one of ``60``, ``1440`` (default),
+        ``4320``, or ``10080``.
+
+        Example::
+
+            @bot.slash(description="Open a support thread")
+            async def support(ctx, topic: str):
+                thread = await ctx.create_thread(f"Support: {topic}")
+                await ctx.respond(f"Thread created: {thread.mention}", ephemeral=True)
+        """
+        if not isinstance(self.channel, discord.TextChannel):
+            raise RuntimeError("create_thread can only be used in a text channel")
+        return await self.channel.create_thread(
+            name=name,
+            auto_archive_duration=auto_archive_minutes,
+            reason=reason,
+        )
+
+    async def fetch_messages(self, limit: int = 10) -> list[discord.Message]:
+        """Return the ``limit`` most recent messages in the current channel.
+
+        Example::
+
+            @bot.slash(description="Show recent messages", permissions=["manage_messages"])
+            async def recent(ctx, count: int = 5):
+                messages = await ctx.fetch_messages(count)
+                summary = "\\n".join(f"{m.author}: {m.content[:50]}" for m in messages)
+                await ctx.respond(summary or "No messages.", ephemeral=True)
+        """
+        if not isinstance(self.channel, discord.abc.Messageable):
+            raise RuntimeError("fetch_messages can only be used in a messageable channel")
+        return [m async for m in self.channel.history(limit=limit)]
+
+    # ── Channel management ────────────────────────────────────
+
+    async def slowmode(self, seconds: int, *, reason: str | None = None) -> None:
+        """Set the slowmode delay on the current channel. Pass ``0`` to disable.
+
+        The maximum Discord allows is ``21600`` (6 hours).
+
+        Example::
+
+            @bot.slash(description="Set slowmode", permissions=["manage_channels"])
+            async def slow(ctx, seconds: int = 10):
+                await ctx.slowmode(seconds)
+                await ctx.respond(f"Slowmode set to {seconds}s.", ephemeral=True)
+        """
+        if not isinstance(self.channel, discord.TextChannel):
+            raise RuntimeError("slowmode can only be used in a text channel")
+        await self.channel.edit(slowmode_delay=seconds, reason=reason)
+
+    async def _set_channel_lock(self, send_messages: bool, *, reason: str | None = None) -> None:
+        if not isinstance(self.channel, discord.TextChannel) or self.guild is None:
+            raise RuntimeError("lock/unlock can only be used in a guild text channel")
+        overwrite = self.channel.overwrites_for(self.guild.default_role)
+        if overwrite.send_messages == send_messages:
+            return  # already in the desired state — skip the API call
+        overwrite.send_messages = send_messages
+        await self.channel.set_permissions(self.guild.default_role, overwrite=overwrite, reason=reason)
+
+    async def lock_channel(self, *, reason: str | None = None) -> None:
+        """Prevent @everyone from sending messages in the current channel.
+
+        Preserves any existing per-role overrides. No-op if already locked.
+
+        Example::
+
+            @bot.slash(description="Lock the channel", permissions=["manage_channels"])
+            async def lock(ctx):
+                await ctx.lock_channel(reason="Ongoing incident")
+                await ctx.respond("Channel locked.", ephemeral=True)
+        """
+        await self._set_channel_lock(False, reason=reason)
+
+    async def unlock_channel(self, *, reason: str | None = None) -> None:
+        """Restore @everyone's ability to send messages in the current channel.
+
+        No-op if the channel is already unlocked.
+
+        Example::
+
+            @bot.slash(description="Unlock the channel", permissions=["manage_channels"])
+            async def unlock(ctx):
+                await ctx.unlock_channel()
+                await ctx.respond("Channel unlocked.", ephemeral=True)
+        """
+        await self._set_channel_lock(True, reason=reason)
+
+    # ── Reactions ─────────────────────────────────────────────
+
+    async def react(self, message: discord.Message, emoji: str) -> None:
+        """Add a reaction to a message.
+
+        Example::
+
+            messages = await ctx.fetch_messages(1)
+            await ctx.react(messages[0], "👍")
+        """
+        await message.add_reaction(emoji)
+
+    async def unreact(self, message: discord.Message, emoji: str) -> None:
+        """Remove the bot's own reaction from a message.
+
+        Example::
+
+            await ctx.unreact(message, "👍")
+        """
+        await message.remove_reaction(emoji, self.interaction.client.user)  # type: ignore[arg-type]
+
+    async def clear_reactions(self, message: discord.Message) -> None:
+        """Remove all reactions from a message.
+
+        Requires the ``manage_messages`` permission.
+
+        Example::
+
+            await ctx.clear_reactions(message)
+        """
+        await message.clear_reactions()
+
+    async def delete_message(
+        self,
+        message: discord.Message,
+        *,
+        delay: float | None = None,
+    ) -> None:
+        """Delete a specific message, optionally after a delay in seconds.
+
+        Example::
+
+            messages = await ctx.fetch_messages(1)
+            await ctx.delete_message(messages[0])
+            await ctx.delete_message(message, delay=5.0)  # delete after 5 seconds
+        """
+        await message.delete(delay=delay)

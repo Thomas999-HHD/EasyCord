@@ -11,6 +11,8 @@ def slash(
     guild_id: int | None = None,
     permissions: list[str] | None = None,
     cooldown: float | None = None,
+    autocomplete: dict[str, Callable] | None = None,
+    choices: dict[str, list] | None = None,
 ) -> Callable:
     """Mark a Plugin method as a slash command.
 
@@ -52,6 +54,8 @@ def slash(
         func._slash_guild = guild_id
         func._slash_permissions = permissions
         func._slash_cooldown = cooldown
+        func._slash_autocomplete = autocomplete or {}
+        func._slash_choices = choices or {}
         return func
 
     return decorator

@@ -14,7 +14,7 @@ This reference is derived from the actual EasyCord source in this codebase.
 
 ### Slash commands
 
-`Bot.slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None, permissions: list[str] | None = None, cooldown: float | None = None) -> Callable`
+`Bot.slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None, permissions: list[str] | None = None, cooldown: float | None = None, autocomplete: dict[str, Callable] | None = None) -> Callable`
 
 Decorator that registers a top-level slash command.
 
@@ -23,6 +23,8 @@ Decorator that registers a top-level slash command.
 - **guild_id**: `None` registers globally; `int` registers to one guild (instant).
 - **permissions**: list of `discord.Permissions` attribute names required (e.g. `["kick_members"]`). Responds ephemerally and skips the command if any are missing.
 - **cooldown**: per-user cooldown in seconds. Blocks ephemerally until the window expires.
+- **autocomplete**: dict mapping parameter names to async callbacks. Each callback receives the current typed string and returns a `list[str]` of suggestions.
+- **choices**: dict mapping parameter names to a fixed list of values. Discord renders these as a locked dropdown — no free-text entry. Values may be strings or numbers.
 
 ```python
 @bot.slash(description="Kick a member", permissions=["kick_members"])
@@ -34,6 +36,29 @@ async def kick(ctx, member: discord.Member):
 async def roll(ctx):
     import random
     await ctx.respond(str(random.randint(1, 6)))
+
+FRUITS = ["apple", "banana", "cherry", "date"]
+
+async def fruit_ac(current: str) -> list[str]:
+    return [f for f in FRUITS if current.lower() in f]
+
+@bot.slash(description="Pick a fruit", autocomplete={"fruit": fruit_ac})
+async def pick(ctx, fruit: str):
+    await ctx.respond(f"You picked {fruit}!")
+```
+
+### Presence
+
+`await Bot.set_status(status: str = "online", *, activity: str | None = None, activity_type: str = "playing") -> None`
+
+Set the bot's presence status and optional activity text.
+
+- **status**: `"online"`, `"idle"`, `"dnd"`, or `"invisible"`.
+- **activity**: display text shown alongside the status indicator. `None` clears it.
+- **activity_type**: `"playing"`, `"watching"`, or `"listening"`.
+
+```python
+await bot.set_status("idle", activity="Taking a break", activity_type="watching")
 ```
 
 ### Events
@@ -96,6 +121,22 @@ Bot overrides:
 - `on_ready()`:
   - logs ready information
 
+### User & member lookup
+
+`await Bot.fetch_member(guild_id: int, user_id: int) -> discord.Member`
+
+Fetch a guild member by guild and user ID. Tries the cache first; falls back to the API. Raises `discord.NotFound` if the user is not in the guild.
+
+`await bot.fetch_user(user_id)` is available directly from the inherited `discord.Client` API.
+
+```python
+user = await bot.fetch_user(123456789)   # inherited from discord.Client
+await ctx.unban(user, reason="Appeal accepted")
+
+member = await bot.fetch_member(ctx.guild.id, stored_id)
+await ctx.kick(member)
+```
+
 ### Convenience
 
 `Bot.run(token: str, **kwargs) -> None`
@@ -146,13 +187,130 @@ await ctx.send_embed(
 )
 ```
 
+`await ctx.send_file(path: str, *, filename: str | None = None, content: str | None = None, ephemeral: bool = False) -> None`
+
+Send a file attachment as the command response.
+
+### Interactive UI
+
+`await ctx.ask_form(title: str, **fields) -> dict[str, str] | None`
+
+Show a modal with text inputs. Returns submitted values or `None` on timeout/dismiss.
+
+`await ctx.confirm(prompt: str, *, timeout: float = 30, yes_label: str = "Yes", no_label: str = "Cancel", ephemeral: bool = False) -> bool | None`
+
+Show Yes/No buttons. Returns `True`, `False`, or `None` on timeout.
+
+`await ctx.choose(prompt: str, options: list[str | dict], *, timeout: float = 60, placeholder: str = "Select an option", ephemeral: bool = False) -> str | None`
+
+Show a select-menu. Options may be strings or `{"label", "value", "description"}` dicts. Returns the chosen value or `None` on timeout.
+
+```python
+color = await ctx.choose("Pick a color", ["Red", "Green", "Blue"])
+```
+
+`await ctx.paginate(pages: list[str | discord.Embed], *, timeout: float = 120, ephemeral: bool = False) -> None`
+
+Show a multi-page message with Prev/Next buttons.
+
+### Moderation
+
+`await ctx.kick(member: discord.Member, *, reason: str | None = None) -> None`
+
+`await ctx.ban(member: discord.Member, *, reason: str | None = None, delete_message_days: int = 0) -> None`
+
+`await ctx.timeout(member: discord.Member, duration: float, *, reason: str | None = None) -> None`
+
+Temporarily mute a member. `duration` is in seconds.
+
+`await ctx.unban(user: discord.User, *, reason: str | None = None) -> None`
+
+Unban a user. Requires a guild context.
+
+### Member management
+
+`await ctx.set_nickname(member: discord.Member, nickname: str | None, *, reason: str | None = None) -> None`
+
+Set or clear a member's server nickname. Pass `None` to reset to their account username.
+
+`await ctx.move_member(member: discord.Member, channel_id: int | None, *, reason: str | None = None) -> None`
+
+Move a member to a voice channel by ID. Pass `None` to disconnect them entirely.
+
+### Role management
+
+`await ctx.add_role(member: discord.Member, role_id: int, *, reason: str | None = None) -> None`
+
+`await ctx.remove_role(member: discord.Member, role_id: int, *, reason: str | None = None) -> None`
+
+`await ctx.create_role(name: str, *, color: discord.Color = discord.Color.default(), hoist: bool = False, mentionable: bool = False, reason: str | None = None) -> discord.Role`
+
+Create a new role and return it. `hoist=True` makes members with this role appear separately in the member list.
+
+`await ctx.delete_role(role_id: int, *, reason: str | None = None) -> None`
+
+Delete a role by ID.
+
+### Message management
+
+`await ctx.purge(limit: int = 10) -> int`
+
+Bulk-delete recent messages in the current channel. Returns count deleted. Requires a `TextChannel`.
+
+`await ctx.fetch_messages(limit: int = 10) -> list[discord.Message]`
+
+Return the N most recent messages in the current channel.
+
+`await ctx.delete_message(message: discord.Message, *, delay: float | None = None) -> None`
+
+Delete a specific message. Pass `delay` (seconds) to schedule a delayed deletion.
+
+### Reactions
+
+`await ctx.react(message: discord.Message, emoji: str) -> None`
+
+Add a reaction to a message.
+
+`await ctx.unreact(message: discord.Message, emoji: str) -> None`
+
+Remove the bot's own reaction from a message.
+
+`await ctx.clear_reactions(message: discord.Message) -> None`
+
+Remove all reactions from a message. Requires `manage_messages`.
+
+### Channel management
+
+`await ctx.slowmode(seconds: int, *, reason: str | None = None) -> None`
+
+Set the slowmode delay on the current text channel. `0` disables it; maximum is `21600` (6 hours).
+
+`await ctx.lock_channel(*, reason: str | None = None) -> None`
+
+Prevent `@everyone` from sending messages by setting `send_messages = False` on the default role overwrite. Preserves all other existing permission overwrites.
+
+`await ctx.unlock_channel(*, reason: str | None = None) -> None`
+
+Restore `@everyone`'s ability to send messages (`send_messages = True`).
+
+### Threads
+
+`await ctx.create_thread(name: str, *, auto_archive_minutes: int = 1440, reason: str | None = None) -> discord.Thread`
+
+Create a public thread in the current channel. `auto_archive_minutes` must be `60`, `1440`, `4320`, or `10080`.
+
+```python
+thread = await ctx.create_thread(f"Support: {topic}")
+await ctx.respond(f"Thread created: {thread.mention}", ephemeral=True)
+```
+
 ## Decorators for plugins (`easycord.decorators`)
 
 ### `slash(...)`
 
-`slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None) -> Callable`
+`slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None, permissions: list[str] | None = None, cooldown: float | None = None, autocomplete: dict[str, Callable] | None = None, choices: dict[str, list] | None = None) -> Callable`
 
-Marks a plugin method as a slash command. Intended use:
+Marks a plugin method as a slash command. All `@bot.slash` parameters are supported.
 
 ```python
 from easycord import Plugin, slash

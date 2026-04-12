@@ -95,22 +95,109 @@ async def roll(ctx):
     await ctx.respond(str(random.randint(1, 6)))
 ```
 
+### Static choices (fixed dropdown)
+
+Lock a parameter to a predefined list. Discord renders it as a dropdown with no free-text entry.
+
+```python
+@bot.slash(description="Set alert level", choices={"level": ["low", "medium", "high"]})
+async def alert(ctx, level: str):
+    await ctx.respond(f"Alert level set to {level}.")
+```
+
+### Server management
+
+```python
+@bot.slash(description="Manage members", permissions=["manage_nicknames"])
+async def manage(ctx, member: discord.Member):
+    await ctx.set_nickname(member, "Verified")
+    await ctx.add_role(member, MEMBER_ROLE_ID)
+
+@bot.slash(description="Move to AFK", permissions=["move_members"])
+async def afk(ctx, member: discord.Member):
+    await ctx.move_member(member, AFK_CHANNEL_ID)
+
+@bot.slash(description="Lock channel", permissions=["manage_channels"])
+async def lock(ctx):
+    await ctx.lock_channel(reason="Incident")
+    await ctx.respond("Locked.", ephemeral=True)
+
+@bot.slash(description="Set slowmode", permissions=["manage_channels"])
+async def slow(ctx, seconds: int = 10):
+    await ctx.slowmode(seconds)
+    await ctx.respond(f"Slowmode: {seconds}s", ephemeral=True)
+```
+
+### Reactions
+
+```python
+messages = await ctx.fetch_messages(1)
+await ctx.react(messages[0], "👍")
+await ctx.unreact(messages[0], "👍")
+await ctx.clear_reactions(messages[0])
+await ctx.delete_message(messages[0], delay=5.0)
+```
+
+### Autocomplete
+
+Attach suggestions to any string parameter. The callback receives what the user has typed so far and returns a list of strings.
+
+```python
+COLORS = ["red", "green", "blue", "orange", "purple"]
+
+async def color_suggestions(current: str) -> list[str]:
+    return [c for c in COLORS if current.lower() in c]
+
+@bot.slash(description="Pick a color", autocomplete={"color": color_suggestions})
+async def paint(ctx, color: str):
+    await ctx.respond(f"Painting with {color}!")
+```
+
+### Bot presence
+
+```python
+await bot.set_status("idle", activity="Maintenance mode", activity_type="watching")
+await bot.set_status("online", activity="your commands", activity_type="listening")
+await bot.set_status("invisible")  # go dark
+```
+
 ### Context helpers
 
 ```python
-async def my_command(ctx):
+async def my_command(ctx, member: discord.Member):
     ctx.user          # discord.User / Member
     ctx.guild         # discord.Guild or None (DM)
     ctx.channel       # channel object
     ctx.command_name  # "my_command"
 
+    # Responding
     await ctx.respond("plain text")
     await ctx.respond("hidden", ephemeral=True)
     await ctx.send_embed("Title", "Description", color=discord.Color.red())
     await ctx.send_embed("Stats", fields=[("Members", "150"), ("Online", "42")], footer="just now")
+    await ctx.send_file("report.pdf", content="Here you go!")
     await ctx.defer()           # for slow operations — respond within 15 minutes
     await ctx.dm("Private!")    # slide into the user's DMs
     await ctx.send_to(CHANNEL_ID, "Cross-channel message")
+
+    # Interactive UI
+    result = await ctx.ask_form("Feedback", subject=dict(label="Subject"), body=dict(label="Body", style="paragraph"))
+    confirmed = await ctx.confirm("Are you sure?", timeout=30)
+    choice = await ctx.choose("Pick one", ["Option A", "Option B", "Option C"])
+    await ctx.paginate(["Page 1", "Page 2", "Page 3"])
+
+    # Moderation
+    await ctx.kick(member, reason="Rule violation")
+    await ctx.ban(member, reason="Spam", delete_message_days=1)
+    await ctx.timeout(member, 300, reason="Cooldown")  # 5 minutes
+    await ctx.unban(user)
+    await ctx.add_role(member, VERIFIED_ROLE_ID)
+    await ctx.remove_role(member, MUTED_ROLE_ID)
+
+    # Channel utilities
+    deleted = await ctx.purge(10)
+    messages = await ctx.fetch_messages(5)
+    thread = await ctx.create_thread("Support: my issue")
 ```
 
 ---
@@ -286,11 +373,13 @@ pyproject.toml
 
 | Method | Description |
 |---|---|
-| `bot.slash(name, *, description, guild_id, permissions, cooldown)` | Decorator — register a slash command |
+| `bot.slash(name, *, description, guild_id, permissions, cooldown, autocomplete, choices)` | Decorator — register a slash command |
 | `bot.on(event)` | Decorator — register an event handler |
 | `bot.use(middleware)` | Register a middleware function |
 | `bot.add_plugin(plugin)` | Load a `Plugin` instance |
 | `await bot.remove_plugin(plugin)` | Unload a plugin at runtime |
+| `await bot.set_status(status, *, activity, activity_type)` | Set the bot's presence status and activity text |
+| `await bot.fetch_member(guild_id, user_id)` | Fetch a `discord.Member` by guild + user ID |
 | `bot.run(token)` | Start the bot |
 
 ### `Composer`
@@ -317,9 +406,34 @@ pyproject.toml
 | `ctx.command_name` | Slash command name |
 | `await ctx.respond(...)` | Send a reply |
 | `await ctx.defer(...)` | Acknowledge (15-min window) |
-| `await ctx.send_embed(title, description, *, fields, footer, ...)` | Build and send an embed — `fields` is a list of `(name, value)` or `(name, value, inline)` tuples |
+| `await ctx.send_embed(title, description, *, fields, footer, ...)` | Build and send an embed |
+| `await ctx.send_file(path, *, filename, content, ephemeral)` | Send a file attachment |
 | `await ctx.dm(content, ...)` | Send a DM to the invoking user |
 | `await ctx.send_to(channel_id, content, ...)` | Send a message to any channel by ID |
+| `await ctx.ask_form(title, **fields)` | Show a modal form; returns `dict` or `None` |
+| `await ctx.confirm(prompt, ...)` | Yes/No buttons; returns `True`, `False`, or `None` |
+| `await ctx.choose(prompt, options, ...)` | Select-menu; returns chosen string or `None` |
+| `await ctx.paginate(pages, ...)` | Multi-page Prev/Next browsing |
+| `await ctx.kick(member, *, reason)` | Kick a member |
+| `await ctx.ban(member, *, reason, delete_message_days)` | Ban a member |
+| `await ctx.timeout(member, duration, *, reason)` | Temporarily mute a member (seconds) |
+| `await ctx.unban(user, *, reason)` | Unban a user |
+| `await ctx.add_role(member, role_id, *, reason)` | Add a role to a member |
+| `await ctx.remove_role(member, role_id, *, reason)` | Remove a role from a member |
+| `await ctx.purge(limit)` | Bulk-delete messages; returns count |
+| `await ctx.fetch_messages(limit)` | Return N most recent messages |
+| `await ctx.create_thread(name, *, auto_archive_minutes, reason)` | Create a thread; returns `discord.Thread` |
+| `await ctx.set_nickname(member, nickname, *, reason)` | Set or clear a member's server nickname |
+| `await ctx.move_member(member, channel_id, *, reason)` | Move to a voice channel by ID, or disconnect (`None`) |
+| `await ctx.create_role(name, *, color, hoist, mentionable, reason)` | Create a role; returns `discord.Role` |
+| `await ctx.delete_role(role_id, *, reason)` | Delete a role by ID |
+| `await ctx.slowmode(seconds, *, reason)` | Set channel slowmode (0 = off) |
+| `await ctx.lock_channel(*, reason)` | Prevent @everyone from sending messages |
+| `await ctx.unlock_channel(*, reason)` | Restore @everyone send permission |
+| `await ctx.react(message, emoji)` | Add a reaction to a message |
+| `await ctx.unreact(message, emoji)` | Remove the bot's own reaction |
+| `await ctx.clear_reactions(message)` | Remove all reactions |
+| `await ctx.delete_message(message, *, delay)` | Delete a message, optionally after a delay |
 
 ### `Plugin`
 

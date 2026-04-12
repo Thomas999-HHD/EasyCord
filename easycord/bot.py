@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Literal
 
 import discord
 from discord import app_commands
@@ -118,6 +118,8 @@ class Bot(discord.Client):
         guild_id: int | None = None,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
+        autocomplete: dict[str, Callable] | None = None,
+        choices: dict[str, list] | None = None,
     ) -> Callable:
         """Decorator that registers a top-level slash command.
 
@@ -130,6 +132,18 @@ class Bot(discord.Client):
         cooldown:
             Per-user cooldown in seconds. The command is blocked ephemerally
             until the window expires.
+        autocomplete:
+            Dict mapping parameter names to async callbacks that return
+            suggestions. Each callback receives the current typed string and
+            returns a ``list[str]``::
+
+                async def fruit_choices(current: str) -> list[str]:
+                    fruits = ["apple", "banana", "cherry"]
+                    return [f for f in fruits if current.lower() in f]
+
+                @bot.slash(description="Pick a fruit", autocomplete={"fruit": fruit_choices})
+                async def pick(ctx, fruit: str):
+                    await ctx.respond(f"You picked {fruit}!")
 
         Example::
 
@@ -152,6 +166,8 @@ class Bot(discord.Client):
                 guild_id=guild_id,
                 permissions=permissions,
                 cooldown=cooldown,
+                autocomplete=autocomplete,
+                choices=choices,
             )
             return func
 
@@ -237,14 +253,21 @@ class Bot(discord.Client):
         guild_id: int | None,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
+        autocomplete: dict[str, Callable] | None = None,
+        choices: dict[str, list] | None = None,
     ) -> None:
         """Register a callable as a slash command in discord.py's app-command tree."""
         guild = discord.Object(id=guild_id) if guild_id else None
         callback = self._build_slash_callback(func, permissions=permissions, cooldown=cooldown)
-        self.tree.add_command(
-            app_commands.Command(name=name, description=description, callback=callback),
-            guild=guild,
-        )
+        if choices:
+            self._inject_choices(callback, choices)
+        cmd = app_commands.Command(name=name, description=description, callback=callback)
+        for param_name, handler in (autocomplete or {}).items():
+            async def _ac(_: discord.Interaction, current: str, _h: Callable = handler) -> list[app_commands.Choice]:
+                results = await _h(current)
+                return [app_commands.Choice(name=r, value=r) for r in results]
+            cmd.autocomplete(param_name)(_ac)
+        self.tree.add_command(cmd, guild=guild)
 
     # ── Events ────────────────────────────────────────────────
 
@@ -319,6 +342,8 @@ class Bot(discord.Client):
                     guild_id=method._slash_guild,
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
+                    autocomplete=getattr(method, "_slash_autocomplete", None),
+                    choices=getattr(method, "_slash_choices", None),
                 )
             if getattr(method, "_is_event", False):
                 self._event_handlers.setdefault(method._event_name, []).append(method)
@@ -377,6 +402,16 @@ class Bot(discord.Client):
             self._task_handles[id(plugin)] = handles
 
     @staticmethod
+    def _inject_choices(callback: Callable, choices: dict[str, list]) -> None:
+        """Stamp discord.py's internal choices attribute onto a command callback."""
+        if not hasattr(callback, "__discord_app_commands_param_choices__"):
+            callback.__discord_app_commands_param_choices__ = {}
+        for param_name, values in choices.items():
+            callback.__discord_app_commands_param_choices__[param_name] = [
+                app_commands.Choice(name=str(v), value=v) for v in values
+            ]
+
+    @staticmethod
     async def _run_task(method: Callable, interval: float) -> None:
         """Run a plugin task method in a loop, sleeping between calls."""
         while True:
@@ -423,13 +458,20 @@ class Bot(discord.Client):
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
                 )
-                discord_group.add_command(
-                    app_commands.Command(
-                        name=method._slash_name,
-                        description=method._slash_desc,
-                        callback=callback,
-                    )
+                _choices = getattr(method, "_slash_choices", None)
+                if _choices:
+                    self._inject_choices(callback, _choices)
+                cmd = app_commands.Command(
+                    name=method._slash_name,
+                    description=method._slash_desc,
+                    callback=callback,
                 )
+                for param_name, handler in getattr(method, "_slash_autocomplete", {}).items():
+                    async def _ac(_: discord.Interaction, current: str, _h: Callable = handler) -> list[app_commands.Choice]:
+                        results = await _h(current)
+                        return [app_commands.Choice(name=r, value=r) for r in results]
+                    cmd.autocomplete(param_name)(_ac)
+                discord_group.add_command(cmd)
             if getattr(method, "_is_event", False):
                 self._event_handlers.setdefault(method._event_name, []).append(method)
 
@@ -439,6 +481,67 @@ class Bot(discord.Client):
         if self.is_ready():
             asyncio.create_task(group.on_load())
             self._start_plugin_tasks(group)
+
+    # ── User & member lookup ──────────────────────────────────
+
+    async def fetch_member(self, guild_id: int, user_id: int) -> discord.Member:
+        """Fetch a guild member by guild ID and user ID.
+
+        Tries the cache first; falls back to an API call if the guild is not
+        cached. Raises ``discord.NotFound`` if the user is not in the guild.
+
+        Example::
+
+            member = await bot.fetch_member(ctx.guild.id, stored_user_id)
+            await ctx.kick(member, reason="Delayed action")
+        """
+        guild = self.get_guild(guild_id) or await super().fetch_guild(guild_id)
+        return await guild.fetch_member(user_id)
+
+    # ── Presence ──────────────────────────────────────────────
+
+    async def set_status(
+        self,
+        status: Literal["online", "idle", "dnd", "invisible"] = "online",
+        *,
+        activity: str | None = None,
+        activity_type: Literal["playing", "watching", "listening"] = "playing",
+    ) -> None:
+        """Set the bot's presence status and optional activity text.
+
+        Parameters
+        ----------
+        status:
+            One of ``"online"``, ``"idle"``, ``"dnd"``, or ``"invisible"``.
+        activity:
+            Display text shown next to the status. ``None`` clears it.
+        activity_type:
+            One of ``"playing"``, ``"watching"``, or ``"listening"``.
+
+        Example::
+
+            await bot.set_status("idle", activity="Taking a break", activity_type="watching")
+        """
+        status_map = {
+            "online": discord.Status.online,
+            "idle": discord.Status.idle,
+            "dnd": discord.Status.dnd,
+            "invisible": discord.Status.invisible,
+        }
+        discord_status = status_map.get(status, discord.Status.online)
+
+        discord_activity: discord.BaseActivity | None = None
+        if activity is not None:
+            if activity_type == "playing":
+                discord_activity = discord.Game(activity)
+            elif activity_type == "watching":
+                discord_activity = discord.Activity(type=discord.ActivityType.watching, name=activity)
+            elif activity_type == "listening":
+                discord_activity = discord.Activity(type=discord.ActivityType.listening, name=activity)
+            else:
+                discord_activity = discord.Game(activity)
+
+        await self.change_presence(status=discord_status, activity=discord_activity)
 
     # ── Run ───────────────────────────────────────────────────
 

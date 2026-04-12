@@ -8,12 +8,15 @@ This file is a **single-source context map** for agents (and humans) who want to
 
 Key features:
 
-- **Slash commands**: register via `EasyCord.slash(...)` (top-level functions)
-- **Events**: register via `EasyCord.on(event)` (supports multiple handlers per event)
+- **Slash commands**: register via `bot.slash(...)` with permission guards, cooldowns, and autocomplete
+- **Events**: register via `bot.on(event)` (supports multiple handlers per event)
 - **Middleware**: wraps every slash-command invocation
 - **Plugins**: group commands/events into `Plugin` subclasses using `@slash` / `@on`
+- **Context helpers**: respond, embed, DM, confirm, choose (select-menu), paginate, moderation, role management, purge, file sending, threads, message history
+- **Bot presence**: `bot.set_status()` to set status and activity
 - **Optional integrations**:
   - `ServerConfigStore` for per-guild config persisted to disk
+  - `AuditLog` for structured embed logging to a Discord channel
 
 ## Runtime expectations
 
@@ -54,8 +57,9 @@ Examples:
 
 From the package root (`from easycord import ...`):
 
-- **Core**: `EasyCord`, `Context`, `Plugin`, `slash`, `on`
+- **Core**: `Bot`, `Context`, `Plugin`, `slash`, `on`, `task`, `SlashGroup`, `Composer`
 - **Server config**: `ServerConfig`, `ServerConfigStore`
+- **Audit**: `AuditLog`
 
 ## How core execution works (important mechanics)
 
