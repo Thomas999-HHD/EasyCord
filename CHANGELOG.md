@@ -1,5 +1,54 @@
 # Changelog
 
+## [2.1] — 2026-04-13
+
+`LevelsPlugin` — drop-in XP, leveling, and named rank system for any EasyCord bot.
+
+**Jump to docs:**
+
+- [LevelsPlugin](docs/api.md#levelsplugin)
+
+---
+
+### 2.1 — New plugin: `easycord.plugins.levels.LevelsPlugin`
+
+A fully self-contained per-guild leveling plugin. Members earn XP for sending messages; reaching a new level posts a level-up embed and optionally awards a configured Discord role.
+
+**Slash commands it registers:**
+
+| Command | Permission | What it does |
+| --- | --- | --- |
+| `/rank` | everyone | Show your level, XP, rank name, and progress bar |
+| `/leaderboard` | everyone | Top-10 XP leaderboard for the server |
+| `/give_xp member amount` | manage_guild | Award XP to any member |
+| `/set_rank level name` | manage_guild | Attach a rank name to a level threshold |
+| `/remove_rank level` | manage_guild | Remove a rank name |
+| `/set_level_role level role` | manage_guild | Assign a role reward to a level |
+| `/ranks` | everyone | List all configured ranks and role rewards |
+
+**Quick start:**
+
+```python
+from easycord.plugins.levels import LevelsPlugin
+
+bot.add_plugin(LevelsPlugin())
+```
+
+**Advanced:**
+
+```python
+bot.add_plugin(LevelsPlugin(
+    xp_per_message=15,
+    cooldown_seconds=45,
+    announce_levelups=True,
+    data_dir=".easycord/levels",
+))
+```
+
+Full docs: [docs/api.md#levelsplugin](docs/api.md#levelsplugin)
+
+---
+
 ## [2.0] — 2026-04-12
 
 Context menus, message editing, pinning, crosspost publishing, voice state, ban listing, and two bug fixes.

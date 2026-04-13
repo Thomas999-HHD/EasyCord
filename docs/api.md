@@ -383,3 +383,76 @@ When limited, responds ephemerally with a "try again in Xs" message.
 ### `catch_errors(message="Something went wrong. Please try again.")`
 
 Catches exceptions thrown by later middleware/handlers, logs them, and attempts to send an ephemeral error response.
+
+## LevelsPlugin (`easycord.plugins.levels`)
+
+Drop-in per-guild XP, leveling, and named rank system.
+
+```python
+from easycord.plugins.levels import LevelsPlugin
+
+bot.add_plugin(LevelsPlugin())
+```
+
+### LevelsPlugin constructor
+
+`LevelsPlugin(*, xp_per_message: int = 10, cooldown_seconds: float = 60.0, data_dir: str = ".easycord/levels", announce_levelups: bool = True)`
+
+- **xp_per_message**: XP awarded per qualifying message.
+- **cooldown_seconds**: Minimum seconds between XP awards for the same user in the same guild. Prevents spam farming.
+- **data_dir**: Directory for JSON storage files (created automatically).
+- **announce_levelups**: If `True`, posts a level-up embed in the channel where the triggering message was sent.
+
+### XP formula
+
+`_xp_for_level(n)` = `n * (n + 1) // 2 * 100`
+
+| Level | Total XP required |
+| --- | --- |
+| 1 | 100 |
+| 2 | 300 |
+| 5 | 1,500 |
+| 10 | 5,500 |
+| 20 | 21,000 |
+
+### Slash commands registered
+
+| Command | Permission | Description |
+| --- | --- | --- |
+| `/rank` | everyone | Show your level, XP, rank name, and progress bar |
+| `/leaderboard` | everyone | Top-10 XP leaderboard |
+| `/give_xp member amount` | manage_guild | Award XP to a member |
+| `/set_rank level name` | manage_guild | Attach a rank name to a level threshold |
+| `/remove_rank level` | manage_guild | Remove a rank name |
+| `/set_level_role level role` | manage_guild | Assign a role reward to a level |
+| `/ranks` | everyone | List all configured ranks and role rewards |
+
+### Public methods
+
+`await plugin.add_xp(guild_id: int, user_id: int, amount: int) -> tuple[int, int, bool]`
+
+Add XP and return `(total_xp, level, leveled_up)`. Protected by a per-guild lock — safe to call from concurrent event handlers.
+
+`plugin.get_entry(guild_id: int, user_id: int) -> dict`
+
+Return a read-only snapshot `{"xp": int, "level": int}` for a user. Returns zeros for unknown users.
+
+### Storage
+
+XP data is stored as `<data_dir>/<guild_id>_xp.json`. Rank/role config is stored as `<data_dir>/<guild_id>_config.json`. All writes are atomic (write-to-temp + rename).
+
+### Example: full setup with ranks and role rewards
+
+```python
+from easycord.plugins.levels import LevelsPlugin
+
+plugin = LevelsPlugin(xp_per_message=15, cooldown_seconds=45)
+bot.add_plugin(plugin)
+
+# In Discord, admins then run:
+# /set_rank level:1  name:Newcomer
+# /set_rank level:5  name:Regular
+# /set_rank level:10 name:Veteran
+# /set_level_role level:5  role:@Member
+# /set_level_role level:10 role:@Veteran
+```
