@@ -1,4 +1,4 @@
-"""Built-in middleware factories for EasyCord bots."""
+"""Built-in middleware factories and chain-builder utilities for EasyCord bots."""
 from __future__ import annotations
 
 import contextlib
@@ -10,6 +10,70 @@ from typing import Awaitable, Callable
 from .context import Context
 
 MiddlewareFn = Callable[[Context, Callable[[], Awaitable[None]]], Awaitable[None]]
+
+
+# ── Middleware chain helpers ───────────────────────────────────────────────────
+
+def _wrap(
+    mw: MiddlewareFn,
+    ctx: Context,
+    proceed: Callable[[], Awaitable[None]],
+) -> Callable[[], Awaitable[None]]:
+    """Return a zero-arg coroutine that calls mw(ctx, proceed)."""
+    async def step() -> None:
+        await mw(ctx, proceed)
+    return step
+
+
+def build_chain(
+    ctx: Context,
+    invoke: Callable[[], Awaitable[None]],
+    middleware: list[MiddlewareFn],
+) -> Callable[[], Awaitable[None]]:
+    """Wrap *invoke* in the full middleware stack so the first middleware runs first."""
+    chain = invoke
+    for mw in reversed(middleware):
+        chain = _wrap(mw, ctx, chain)
+    return chain
+
+
+def dm_only() -> MiddlewareFn:
+    """Block commands invoked inside a guild (i.e. only allow DMs)."""
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is not None:
+            await ctx.respond(
+                "This command can only be used in a direct message.", ephemeral=True
+            )
+            return
+        await proceed()
+
+    return handler
+
+
+def allowed_roles(*role_ids: int, message: str = "You don't have the required role to use this command.") -> MiddlewareFn:
+    """Block commands unless the invoking member holds at least one of *role_ids*.
+
+    Silently passes when used outside a guild (DMs), so combine with
+    ``guild_only()`` if the command must be server-only.
+
+    Example::
+
+        bot.use(allowed_roles(STAFF_ROLE_ID, ADMIN_ROLE_ID))
+    """
+    role_set = frozenset(role_ids)
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None or role_set.isdisjoint(r.id for r in member.roles):
+            await ctx.respond(message, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
 
 
 def log_middleware(

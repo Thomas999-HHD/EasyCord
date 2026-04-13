@@ -4,39 +4,16 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Awaitable, Callable, Literal, Union
+from typing import Callable, Literal, Union
 
 import discord
 from discord import app_commands
 
 from .context import Context
-from .middleware import MiddlewareFn
+from .middleware import MiddlewareFn, build_chain
 from .plugin import Plugin
 
 logger = logging.getLogger("easycord")
-
-
-def _wrap(
-    mw: MiddlewareFn,
-    ctx: Context,
-    proceed: Callable[[], Awaitable[None]],
-) -> Callable[[], Awaitable[None]]:
-    """Return a zero-arg coroutine that calls mw(ctx, proceed)."""
-    async def step() -> None:
-        await mw(ctx, proceed)
-    return step
-
-
-def _build_chain(
-    ctx: Context,
-    invoke: Callable[[], Awaitable[None]],
-    middleware: list[MiddlewareFn],
-) -> Callable[[], Awaitable[None]]:
-    """Wrap invoke in the full middleware stack so the first middleware runs first."""
-    chain = invoke
-    for mw in reversed(middleware):
-        chain = _wrap(mw, ctx, chain)
-    return chain
 
 
 class Bot(discord.Client):
@@ -232,7 +209,7 @@ class Bot(discord.Client):
 
                 await func(ctx, **kwargs)
 
-            await _build_chain(ctx, invoke, self._middleware)()
+            await build_chain(ctx, invoke, self._middleware)()
 
         interaction_param = inspect.Parameter(
             "interaction",
@@ -575,7 +552,7 @@ class Bot(discord.Client):
             async def invoke() -> None:
                 await func(ctx, target)
 
-            await _build_chain(ctx, invoke, self._middleware)()
+            await build_chain(ctx, invoke, self._middleware)()
 
         callback.__signature__ = inspect.Signature(parameters=[interaction_param, target_param])
 
@@ -597,6 +574,19 @@ class Bot(discord.Client):
         """
         guild = self.get_guild(guild_id) or await super().fetch_guild(guild_id)
         return await guild.fetch_member(user_id)
+
+    async def fetch_user(self, user_id: int) -> discord.User:
+        """Fetch a Discord user by ID (not guild-specific).
+
+        Checks the internal cache first; falls back to an API call.
+        Raises ``discord.NotFound`` if no user with that ID exists.
+
+        Example::
+
+            user = await bot.fetch_user(stored_user_id)
+            await user.send("Hello from the bot!")
+        """
+        return self.get_user(user_id) or await super().fetch_user(user_id)
 
     # ── Presence ──────────────────────────────────────────────
 
