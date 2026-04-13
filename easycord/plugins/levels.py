@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import time
 from collections import defaultdict
 from pathlib import Path
+from typing import Callable
 
 import discord
 
@@ -30,11 +32,15 @@ def _xp_for_level(level: int) -> int:
 
 
 def _level_from_xp(xp: int) -> int:
-    """Return the level achieved for a given total XP amount."""
-    level = 0
-    while _xp_for_level(level + 1) <= xp:
-        level += 1
-    return level
+    """Return the level achieved for a given total XP amount.
+
+    Solves ``n*(n+1)/2*100 ≤ xp`` in O(1) via ``math.isqrt``, then steps
+    forward at most once to handle integer-division edge cases.
+    """
+    n = (math.isqrt(1 + 8 * xp // 100) - 1) // 2
+    while _xp_for_level(n + 1) <= xp:
+        n += 1
+    return n
 
 
 # ── Plugin ────────────────────────────────────────────────────────────────────
@@ -85,8 +91,10 @@ class LevelsPlugin(Plugin):
         self._data_dir = Path(data_dir)
         self._announce = announce_levelups
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        # Per-guild asyncio locks protect XP read-modify-write cycles.
-        self._locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # Per-guild locks: _xp_locks guards XP read-modify-write;
+        # _cfg_locks guards config read-modify-write separately.
+        self._xp_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._cfg_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
         # In-memory cooldown tracker: {guild_id: {user_id: last_award_time}}
         self._cooldowns: dict[int, dict[int, float]] = defaultdict(dict)
 
@@ -99,7 +107,7 @@ class LevelsPlugin(Plugin):
         return self._data_dir / f"{guild_id}_config.json"
 
     def _read_xp(self, guild_id: int) -> dict[str, dict]:
-        """Synchronous read — call only while holding ``self._locks[guild_id]``."""
+        """Synchronous read — call only while holding ``self._xp_locks[guild_id]``."""
         path = self._xp_path(guild_id)
         if not path.exists():
             return {}
@@ -107,26 +115,36 @@ class LevelsPlugin(Plugin):
             return json.load(f)
 
     def _write_xp(self, guild_id: int, data: dict[str, dict]) -> None:
-        """Atomic synchronous write — call only while holding ``self._locks[guild_id]``."""
+        """Atomic synchronous write — call only while holding ``self._xp_locks[guild_id]``."""
         path = self._xp_path(guild_id)
         tmp = path.with_suffix(".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         os.replace(tmp, path)
 
-    async def _load_config(self, guild_id: int) -> dict:
+    def _read_config(self, guild_id: int) -> dict:
+        """Synchronous config read — safe for display; use ``_update_config`` for writes."""
         path = self._cfg_path(guild_id)
         if not path.exists():
             return {}
         with open(path, encoding="utf-8") as f:
             return json.load(f)
 
-    async def _save_config(self, guild_id: int, config: dict) -> None:
-        path = self._cfg_path(guild_id)
-        tmp = path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        os.replace(tmp, path)
+    async def _update_config(self, guild_id: int, fn: Callable[[dict], object]) -> object:
+        """Read config, call ``fn(config)`` inside a per-guild lock, write back atomically.
+
+        Returns whatever ``fn`` returns, so callers can retrieve values from
+        the mutation (e.g. ``dict.pop`` returning the removed value).
+        """
+        async with self._cfg_locks[guild_id]:
+            config = self._read_config(guild_id)
+            result = fn(config)
+            path = self._cfg_path(guild_id)
+            tmp = path.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+            os.replace(tmp, path)
+        return result
 
     # ── XP mutation ───────────────────────────────────────────────────────────
 
@@ -138,7 +156,7 @@ class LevelsPlugin(Plugin):
         The read-modify-write is protected by a per-guild lock so concurrent
         message events cannot corrupt the stored totals.
         """
-        async with self._locks[guild_id]:
+        async with self._xp_locks[guild_id]:
             data = self._read_xp(guild_id)
             uid = str(user_id)
             entry = data.get(uid, {"xp": 0, "level": 0})
@@ -158,15 +176,12 @@ class LevelsPlugin(Plugin):
 
     def _rank_for_level(self, config: dict, level: int) -> str | None:
         """Return the highest rank name whose threshold is at or below *level*."""
-        ranks: dict[str, str] = config.get("ranks", {})
-        best_name: str | None = None
-        best_threshold = -1
-        for lvl_str, name in ranks.items():
-            lvl = int(lvl_str)
-            if lvl <= level and lvl > best_threshold:
-                best_threshold = lvl
-                best_name = name
-        return best_name
+        eligible = [
+            (int(k), v)
+            for k, v in config.get("ranks", {}).items()
+            if int(k) <= level
+        ]
+        return max(eligible, key=lambda t: t[0])[1] if eligible else None
 
     # ── Progress bar ──────────────────────────────────────────────────────────
 
@@ -177,6 +192,16 @@ class LevelsPlugin(Plugin):
         span = next_ceil - current_floor
         filled = int((xp - current_floor) / span * width) if span else width
         return "█" * filled + "░" * (width - filled)
+
+    # ── Guild guard ───────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _require_guild(ctx) -> bool:
+        """Respond ephemerally and return ``False`` if invoked outside a server."""
+        if ctx.guild is None:
+            await ctx.respond("This command only works inside a server.", ephemeral=True)
+            return False
+        return True
 
     # ── Event: award XP on message ────────────────────────────────────────────
 
@@ -189,7 +214,6 @@ class LevelsPlugin(Plugin):
         user_id = message.author.id
         now = time.monotonic()
 
-        # Enforce per-user cooldown.
         if now - self._cooldowns[guild_id].get(user_id, 0.0) < self._cooldown:
             return
         self._cooldowns[guild_id][user_id] = now
@@ -199,7 +223,7 @@ class LevelsPlugin(Plugin):
         if not leveled_up or not self._announce:
             return
 
-        config = await self._load_config(guild_id)
+        config = self._read_config(guild_id)
         rank = self._rank_for_level(config, level)
         rank_text = f" — **{rank}**" if rank else ""
 
@@ -209,7 +233,6 @@ class LevelsPlugin(Plugin):
         )
         embed.set_footer(text=f"Total XP: {xp}")
 
-        # Role reward
         role_rewards: dict[str, int] = config.get("role_rewards", {})
         role_id = role_rewards.get(str(level))
         if role_id and isinstance(message.author, discord.Member):
@@ -227,12 +250,11 @@ class LevelsPlugin(Plugin):
 
     @slash(description="Show your current level, XP, and rank.")
     async def rank(self, ctx) -> None:
-        if not ctx.guild:
-            await ctx.respond("This command only works inside a server.", ephemeral=True)
+        if not await self._require_guild(ctx):
             return
 
         entry = self.get_entry(ctx.guild.id, ctx.user.id)
-        config = await self._load_config(ctx.guild.id)
+        config = self._read_config(ctx.guild.id)
         level = entry["level"]
         xp = entry["xp"]
         rank_name = self._rank_for_level(config, level)
@@ -260,8 +282,7 @@ class LevelsPlugin(Plugin):
 
     @slash(description="Show the server's top-10 XP leaderboard.")
     async def leaderboard(self, ctx) -> None:
-        if not ctx.guild:
-            await ctx.respond("This command only works inside a server.", ephemeral=True)
+        if not await self._require_guild(ctx):
             return
 
         data = self._read_xp(ctx.guild.id)
@@ -269,7 +290,7 @@ class LevelsPlugin(Plugin):
             await ctx.respond("No one has earned XP yet!", ephemeral=True)
             return
 
-        config = await self._load_config(ctx.guild.id)
+        config = self._read_config(ctx.guild.id)
         top = sorted(data.items(), key=lambda kv: kv[1]["xp"], reverse=True)[:10]
 
         medals = ["🥇", "🥈", "🥉"]
@@ -293,8 +314,7 @@ class LevelsPlugin(Plugin):
 
     @slash(description="Award XP to a member.", permissions=["manage_guild"])
     async def give_xp(self, ctx, member: discord.Member, amount: int) -> None:
-        if not ctx.guild:
-            await ctx.respond("This command only works inside a server.", ephemeral=True)
+        if not await self._require_guild(ctx):
             return
         if amount <= 0:
             await ctx.respond("Amount must be a positive number.", ephemeral=True)
@@ -307,41 +327,44 @@ class LevelsPlugin(Plugin):
 
     @slash(description="Name a rank for a specific level.", permissions=["manage_guild"])
     async def set_rank(self, ctx, level: int, name: str) -> None:
-        if not ctx.guild:
-            await ctx.respond("This command only works inside a server.", ephemeral=True)
+        if not await self._require_guild(ctx):
             return
         if level < 1:
             await ctx.respond("Level must be at least 1.", ephemeral=True)
             return
-        config = await self._load_config(ctx.guild.id)
-        config.setdefault("ranks", {})[str(level)] = name
-        await self._save_config(ctx.guild.id, config)
+
+        def _set(config: dict) -> None:
+            config.setdefault("ranks", {})[str(level)] = name
+
+        await self._update_config(ctx.guild.id, _set)
         await ctx.respond(f"Rank **{name}** set for Level {level}.", ephemeral=True)
 
     @slash(description="Remove the rank name for a specific level.", permissions=["manage_guild"])
     async def remove_rank(self, ctx, level: int) -> None:
-        if not ctx.guild:
-            await ctx.respond("This command only works inside a server.", ephemeral=True)
+        if not await self._require_guild(ctx):
             return
-        config = await self._load_config(ctx.guild.id)
-        removed = config.get("ranks", {}).pop(str(level), None)
+
+        removed = await self._update_config(
+            ctx.guild.id,
+            lambda config: config.get("ranks", {}).pop(str(level), None),
+        )
         if removed is None:
             await ctx.respond(f"No rank is configured at level {level}.", ephemeral=True)
             return
-        await self._save_config(ctx.guild.id, config)
         await ctx.respond(f"Removed rank **{removed}** from Level {level}.", ephemeral=True)
 
     @slash(description="Assign a role reward when a member reaches a level.", permissions=["manage_guild"])
     async def set_level_role(self, ctx, level: int, role: discord.Role) -> None:
-        if not ctx.guild:
-            await ctx.respond("This command only works inside a server.", ephemeral=True)
+        if not await self._require_guild(ctx):
             return
         if level < 1:
             await ctx.respond("Level must be at least 1.", ephemeral=True)
             return
-        config = await self._load_config(ctx.guild.id)
-        config.setdefault("role_rewards", {})[str(level)] = role.id
-        await self._save_config(ctx.guild.id, config)
+
+        def _set(config: dict) -> None:
+            config.setdefault("role_rewards", {})[str(level)] = role.id
+
+        await self._update_config(ctx.guild.id, _set)
         await ctx.respond(
             f"Members who reach **Level {level}** will receive {role.mention}.",
             ephemeral=True,
@@ -349,11 +372,10 @@ class LevelsPlugin(Plugin):
 
     @slash(description="List all configured ranks and role rewards.")
     async def ranks(self, ctx) -> None:
-        if not ctx.guild:
-            await ctx.respond("This command only works inside a server.", ephemeral=True)
+        if not await self._require_guild(ctx):
             return
 
-        config = await self._load_config(ctx.guild.id)
+        config = self._read_config(ctx.guild.id)
         rank_map: dict[str, str] = config.get("ranks", {})
         role_map: dict[str, int] = config.get("role_rewards", {})
 

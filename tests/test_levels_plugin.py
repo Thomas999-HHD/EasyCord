@@ -286,7 +286,7 @@ async def test_award_xp_no_levelup_embed_when_announce_disabled(plugin, tmp_path
 
 
 async def test_award_xp_assigns_role_reward_on_levelup(plugin, tmp_path):
-    await plugin._save_config(1, {"role_rewards": {str(1): 999}})
+    await plugin._update_config(1, lambda c: c.update({"role_rewards": {str(1): 999}}))
     role = MagicMock(spec=discord.Role)
     role.mention = "@Member"
     msg = _make_message(guild_id=1, user_id=42)
@@ -311,7 +311,7 @@ async def test_rank_command_responds_with_embed(plugin):
 
 async def test_rank_command_shows_rank_name(plugin):
     ctx = _make_ctx(guild_id=1, user_id=42)
-    await plugin._save_config(1, {"ranks": {"2": "Regular"}})
+    await plugin._update_config(1, lambda c: c.update({"ranks": {"2": "Regular"}}))
     await plugin.add_xp(1, 42, 350)  # level 2
     await plugin.rank(ctx)
     embed = ctx.respond.call_args.kwargs["embed"]
@@ -378,7 +378,7 @@ async def test_give_xp_announces_levelup(plugin):
 async def test_set_rank_saves_config(plugin, tmp_path):
     ctx = _make_ctx(guild_id=1)
     await plugin.set_rank(ctx, level=5, name="Veteran")
-    config = await plugin._load_config(1)
+    config = plugin._read_config(1)
     assert config["ranks"]["5"] == "Veteran"
 
 
@@ -392,7 +392,7 @@ async def test_remove_rank_deletes_entry(plugin):
     ctx = _make_ctx(guild_id=1)
     await plugin.set_rank(ctx, level=5, name="Veteran")
     await plugin.remove_rank(ctx, level=5)
-    config = await plugin._load_config(1)
+    config = plugin._read_config(1)
     assert "5" not in config.get("ranks", {})
 
 
@@ -411,7 +411,7 @@ async def test_set_level_role_saves_role_id(plugin):
     role.id = 777
     role.mention = "@Member"
     await plugin.set_level_role(ctx, level=3, role=role)
-    config = await plugin._load_config(1)
+    config = plugin._read_config(1)
     assert config["role_rewards"]["3"] == 777
 
 
@@ -419,7 +419,7 @@ async def test_set_level_role_saves_role_id(plugin):
 
 async def test_ranks_shows_configured_ranks(plugin):
     ctx = _make_ctx(guild_id=1)
-    await plugin._save_config(1, {"ranks": {"1": "Newbie", "10": "Veteran"}})
+    await plugin._update_config(1, lambda c: c.update({"ranks": {"1": "Newbie", "10": "Veteran"}}))
     await plugin.ranks(ctx)
     embed = ctx.respond.call_args.kwargs.get("embed") or ctx.respond.call_args[1].get("embed")
     assert embed is not None

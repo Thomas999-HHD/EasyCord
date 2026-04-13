@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.3] — 2026-04-13
+
+`LevelsPlugin` — concurrency and performance bug fixes.
+
+### Bug fixes
+
+| Area | Fix |
+| --- | --- |
+| Config lock race | `_load_config` / `_save_config` shared the XP lock, so a config read could block (or be blocked by) an unrelated XP write. Config now has its own `_cfg_locks` dict. |
+| Config write not atomic under concurrency | Config writes were unguarded; concurrent `/set_rank` calls could interleave. Replaced with `_update_config(guild_id, fn)` which holds `_cfg_locks[guild_id]` across the read-modify-write cycle. |
+| `_level_from_xp` O(n) loop | Replaced the `while` loop with an O(1) closed-form solve via `math.isqrt`, removing a potential hot-path bottleneck on high-XP members. |
+
+### Internal improvements (no API change)
+
+- `_require_guild(ctx)` helper deduplicates the guild-only guard across all slash commands.
+- `_rank_for_level` simplified to a one-liner using `max()`.
+- Comments tightened; redundant inline remarks removed.
+
+---
+
 ## [2.1] — 2026-04-13
 
 `LevelsPlugin` — drop-in XP, leveling, and named rank system for any EasyCord bot.
