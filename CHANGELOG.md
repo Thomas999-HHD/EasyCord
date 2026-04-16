@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.6] — 2026-04-16
+
+Internal refactor and framework improvements. No breaking changes to the public API.
+
+### Bot internals split
+
+`bot.py` (668 lines) has been split into three focused mixin modules that mirror how `Context` already works:
+
+| File | Contents |
+| --- | --- |
+| `easycord/_bot_commands.py` | Slash command registration, context menus, subcommand groups |
+| `easycord/_bot_events.py` | Event dispatch, middleware, presence, user lookup |
+| `easycord/_bot_plugins.py` | Plugin lifecycle, background tasks, shared method scanner |
+
+`bot.py` is now an 83-line shell that wires the mixins together.
+
+### Deduplication: `add_group` / `add_plugin`
+
+A shared `_scan_methods(plugin, *, parent=None)` helper replaced two nearly-identical `inspect.getmembers` loops. `_register_slash` now accepts an optional `parent: app_commands.Group` parameter, so `add_group` reuses it instead of copying the registration logic. The autocomplete lambda is now defined once.
+
+### Composer: complete middleware coverage
+
+`Composer` now exposes fluent methods for all built-in middleware — previously `dm_only`, `allowed_roles`, `admin_only`, and `channel_only` were missing. `add_group` is also now available on `Composer`.
+
+### `LevelsPlugin` split
+
+`easycord/plugins/levels.py` (406 lines) has been split:
+
+- `easycord/plugins/_levels_data.py` — `LevelsStore` (atomic per-guild JSON storage), `xp_for_level`, `level_from_xp`, `progress_bar`, `rank_for_level`
+- `easycord/plugins/levels.py` — `LevelsPlugin` class only (185 lines)
+
+All seven slash commands in `LevelsPlugin` now use `guild_only=True` on the decorator, removing the `_require_guild` helper.
+
+### Test consolidation
+
+Three stale test files removed; their content merged into the correct homes:
+
+| Deleted | Merged into |
+| --- | --- |
+| `tests/test_middleware_v2.py` | `tests/test_middleware.py` |
+| `tests/test_v2.py` | `tests/test_bot.py` + `tests/test_context.py` |
+| `tests/test_task.py` | `tests/test_bot.py` + `tests/test_decorators.py` |
+
+A shared `bot` fixture now lives in `tests/conftest.py`, removing duplicate fixture definitions across files.
+
+---
+
 ## [2.5] — 2026-04-13
 
 New decorator parameter, two middleware factories, two context shortcuts, and minimized agent documentation.

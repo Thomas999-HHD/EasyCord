@@ -1,24 +1,11 @@
+import asyncio
+
 import discord
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from easycord import Bot, Plugin
-from easycord.decorators import slash, on as ec_on
-
-
-@pytest.fixture
-def bot():
-    """Bot instance with discord.Client internals mocked out."""
-    mock_tree = MagicMock()
-    mock_tree.add_command = MagicMock()
-    mock_tree.remove_command = MagicMock()
-    mock_tree.sync = AsyncMock()
-
-    with patch("discord.Client.__init__", return_value=None), \
-         patch("easycord.bot.app_commands.CommandTree", return_value=mock_tree):
-        b = Bot(intents=MagicMock(), auto_sync=False)
-        b.is_ready = MagicMock(return_value=False)
-        return b
+from easycord import Plugin
+from easycord.decorators import slash, on as ec_on, task
 
 
 # ── use ───────────────────────────────────────────────────────────────────────
@@ -404,3 +391,173 @@ async def test_rate_limit_per_command_independent_per_user(bot):
     await callback(i2)
 
     assert invoked == [1, 2]
+
+
+# ── user_command ──────────────────────────────────────────────────────────────
+
+def test_user_command_registers_context_menu(bot):
+    @bot.user_command(name="User Info")
+    async def user_info(ctx, member):
+        pass
+
+    bot.tree.add_command.assert_called_once()
+    cmd = bot.tree.add_command.call_args[0][0]
+    assert cmd.name == "User Info"
+
+
+def test_user_command_defaults_name_to_function_name(bot):
+    @bot.user_command()
+    async def show_profile(ctx, member):
+        pass
+
+    cmd = bot.tree.add_command.call_args[0][0]
+    assert cmd.name == "show_profile"
+
+
+def test_user_command_returns_original_function(bot):
+    async def handler(ctx, member):
+        pass
+
+    result = bot.user_command(name="X")(handler)
+    assert result is handler
+
+
+async def test_user_command_invokes_handler_with_target(bot):
+    received = []
+
+    @bot.user_command(name="Info")
+    async def handler(ctx, member):
+        received.append(member)
+
+    callback = bot.tree.add_command.call_args[0][0].callback
+    interaction = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    member = MagicMock(spec=discord.Member)
+    await callback(interaction, member)
+    assert received == [member]
+
+
+def test_user_command_guild_scoped(bot):
+    @bot.user_command(name="X", guild_id=99999)
+    async def handler(ctx, member):
+        pass
+
+    _, kwargs = bot.tree.add_command.call_args
+    assert kwargs.get("guild") is not None
+    assert kwargs["guild"].id == 99999
+
+
+# ── message_command ───────────────────────────────────────────────────────────
+
+def test_message_command_registers_context_menu(bot):
+    @bot.message_command(name="Quote")
+    async def quote(ctx, message):
+        pass
+
+    bot.tree.add_command.assert_called_once()
+    cmd = bot.tree.add_command.call_args[0][0]
+    assert cmd.name == "Quote"
+
+
+def test_message_command_defaults_name_to_function_name(bot):
+    @bot.message_command()
+    async def save_message(ctx, message):
+        pass
+
+    cmd = bot.tree.add_command.call_args[0][0]
+    assert cmd.name == "save_message"
+
+
+def test_message_command_returns_original_function(bot):
+    async def handler(ctx, message):
+        pass
+
+    result = bot.message_command(name="Y")(handler)
+    assert result is handler
+
+
+async def test_message_command_invokes_handler_with_target(bot):
+    received = []
+
+    @bot.message_command(name="Archive")
+    async def handler(ctx, message):
+        received.append(message)
+
+    callback = bot.tree.add_command.call_args[0][0].callback
+    interaction = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    msg = MagicMock(spec=discord.Message)
+    await callback(interaction, msg)
+    assert received == [msg]
+
+
+async def test_context_menu_runs_middleware(bot):
+    order = []
+
+    async def mw(ctx, proceed):
+        order.append("before")
+        await proceed()
+        order.append("after")
+
+    bot.use(mw)
+
+    @bot.user_command(name="MW Test")
+    async def handler(ctx, member):
+        order.append("handler")
+
+    callback = bot.tree.add_command.call_args[0][0].callback
+    interaction = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    await callback(interaction, MagicMock(spec=discord.Member))
+    assert order == ["before", "handler", "after"]
+
+
+# ── background tasks ──────────────────────────────────────────────────────────
+
+def test_add_plugin_does_not_start_tasks_before_ready(bot):
+    class MyPlugin(Plugin):
+        @task(seconds=1)
+        async def my_task(self):
+            pass
+
+    plugin = MyPlugin()
+    bot.add_plugin(plugin)
+    assert id(plugin) not in bot._task_handles
+
+
+async def test_start_plugin_tasks_creates_asyncio_tasks(bot):
+    class MyPlugin(Plugin):
+        @task(seconds=100)
+        async def my_task(self):
+            pass
+
+    plugin = MyPlugin()
+    plugin._bot = bot
+    bot._plugins.append(plugin)
+    bot._start_plugin_tasks(plugin)
+
+    assert id(plugin) in bot._task_handles
+    assert len(bot._task_handles[id(plugin)]) == 1
+
+    for handle in bot._task_handles[id(plugin)]:
+        handle.cancel()
+        try:
+            await handle
+        except asyncio.CancelledError:
+            pass
+
+
+async def test_remove_plugin_cancels_tasks(bot):
+    class MyPlugin(Plugin):
+        @task(seconds=100)
+        async def my_task(self):
+            pass
+
+    plugin = MyPlugin()
+    plugin._bot = bot
+    bot._plugins.append(plugin)
+    bot._start_plugin_tasks(plugin)
+
+    assert id(plugin) in bot._task_handles
+    await bot.remove_plugin(plugin)
+    assert id(plugin) not in bot._task_handles

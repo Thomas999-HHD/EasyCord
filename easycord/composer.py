@@ -42,6 +42,7 @@ class Composer:
         self._auto_sync: bool = True
         self._middleware: list[MiddlewareFn] = []
         self._plugins: list[Plugin] = []
+        self._groups: list = []
 
     # ── Bot options ───────────────────────────────────────────
 
@@ -71,6 +72,11 @@ class Composer:
         self._middleware.append(_mw.guild_only())
         return self
 
+    def dm_only(self) -> Composer:
+        """Add the built-in DM-only guard (blocks guild invocations)."""
+        self._middleware.append(_mw.dm_only())
+        return self
+
     def rate_limit(
         self,
         limit: int = 5,
@@ -88,7 +94,29 @@ class Composer:
         self._middleware.append(_mw.catch_errors(message))
         return self
 
-    # ── Custom middleware & plugins ───────────────────────────
+    def admin_only(
+        self,
+        message: str = "This command requires administrator permissions.",
+    ) -> Composer:
+        """Add the built-in administrator-only guard."""
+        self._middleware.append(_mw.admin_only(message))
+        return self
+
+    def allowed_roles(self, *role_ids: int, message: str = "You don't have the required role to use this command.") -> Composer:
+        """Add the built-in role-allowlist guard."""
+        self._middleware.append(_mw.allowed_roles(*role_ids, message=message))
+        return self
+
+    def channel_only(
+        self,
+        *channel_ids: int,
+        message: str = "This command cannot be used in this channel.",
+    ) -> Composer:
+        """Add the built-in channel-allowlist guard."""
+        self._middleware.append(_mw.channel_only(*channel_ids, message=message))
+        return self
+
+    # ── Custom middleware, plugins & groups ───────────────────
 
     def use(self, middleware: MiddlewareFn) -> Composer:
         """Add a custom middleware function."""
@@ -98,6 +126,11 @@ class Composer:
     def add_plugin(self, plugin: Plugin) -> Composer:
         """Queue a plugin to be added to the bot."""
         self._plugins.append(plugin)
+        return self
+
+    def add_group(self, group) -> Composer:
+        """Queue a SlashGroup to be added to the bot."""
+        self._groups.append(group)
         return self
 
     # ── Build ─────────────────────────────────────────────────
@@ -112,4 +145,6 @@ class Composer:
             bot.use(mw)
         for plugin in self._plugins:
             bot.add_plugin(plugin)
+        for group in self._groups:
+            bot.add_group(group)
         return bot

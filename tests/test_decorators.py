@@ -104,3 +104,59 @@ def test_on_different_event_names():
 
     assert h1._event_name == "message_delete"
     assert h2._event_name == "reaction_add"
+
+
+# ── task ──────────────────────────────────────────────────────────────────────
+
+from easycord.decorators import task
+import pytest
+
+
+def test_task_decorator_stamps_attributes():
+    from easycord import Plugin
+
+    class MyPlugin(Plugin):
+        @task(seconds=30)
+        async def my_task(self):
+            pass
+
+    assert MyPlugin().my_task._is_task is True
+    assert MyPlugin().my_task._task_interval == 30.0
+
+
+def test_task_decorator_minutes():
+    from easycord import Plugin
+
+    class MyPlugin(Plugin):
+        @task(minutes=2)
+        async def my_task(self):
+            pass
+
+    assert MyPlugin().my_task._task_interval == 120.0
+
+
+def test_task_decorator_hours():
+    from easycord import Plugin
+
+    class MyPlugin(Plugin):
+        @task(hours=1)
+        async def my_task(self):
+            pass
+
+    assert MyPlugin().my_task._task_interval == 3600.0
+
+
+def test_task_decorator_combined():
+    from easycord import Plugin
+
+    class MyPlugin(Plugin):
+        @task(hours=1, minutes=30, seconds=15)
+        async def my_task(self):
+            pass
+
+    assert MyPlugin().my_task._task_interval == 3600 + 1800 + 15
+
+
+def test_task_zero_interval_raises():
+    with pytest.raises(ValueError, match="greater than zero"):
+        task(seconds=0)

@@ -7,7 +7,13 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from easycord.plugins.levels import LevelsPlugin, _xp_for_level, _level_from_xp
+from easycord.plugins.levels import LevelsPlugin
+from easycord.plugins._levels_data import (
+    xp_for_level as _xp_for_level,
+    level_from_xp as _level_from_xp,
+    rank_for_level,
+    progress_bar,
+)
 
 
 # ── Formula tests ─────────────────────────────────────────────────────────────
@@ -182,44 +188,44 @@ async def test_get_entry_reflects_stored_xp(plugin):
 
 # ── _rank_for_level ───────────────────────────────────────────────────────────
 
-def test_rank_for_level_no_ranks(plugin):
-    assert plugin._rank_for_level({}, 5) is None
+def test_rank_for_level_no_ranks():
+    assert rank_for_level({}, 5) is None
 
 
-def test_rank_for_level_exact_match(plugin):
+def test_rank_for_level_exact_match():
     config = {"ranks": {"5": "Veteran"}}
-    assert plugin._rank_for_level(config, 5) == "Veteran"
+    assert rank_for_level(config, 5) == "Veteran"
 
 
-def test_rank_for_level_below_lowest_threshold(plugin):
+def test_rank_for_level_below_lowest_threshold():
     config = {"ranks": {"5": "Veteran"}}
-    assert plugin._rank_for_level(config, 3) is None
+    assert rank_for_level(config, 3) is None
 
 
-def test_rank_for_level_picks_highest_applicable(plugin):
+def test_rank_for_level_picks_highest_applicable():
     config = {"ranks": {"1": "Newbie", "5": "Regular", "10": "Veteran"}}
-    assert plugin._rank_for_level(config, 7) == "Regular"
-    assert plugin._rank_for_level(config, 10) == "Veteran"
-    assert plugin._rank_for_level(config, 1) == "Newbie"
+    assert rank_for_level(config, 7) == "Regular"
+    assert rank_for_level(config, 10) == "Veteran"
+    assert rank_for_level(config, 1) == "Newbie"
 
 
 # ── _progress_bar ─────────────────────────────────────────────────────────────
 
-def test_progress_bar_empty_at_level_start(plugin):
+def test_progress_bar_empty_at_level_start():
     # At exactly level 1 (100 XP), progress toward level 2 is 0%
-    bar = plugin._progress_bar(xp=100, level=1, width=10)
+    bar = progress_bar(xp=100, level=1, width=10)
     assert bar == "░" * 10
 
 
-def test_progress_bar_half_full(plugin):
+def test_progress_bar_half_full():
     # Level 1→2 costs 200 XP (from 100 to 300). Halfway = 200 XP.
-    bar = plugin._progress_bar(xp=200, level=1, width=10)
+    bar = progress_bar(xp=200, level=1, width=10)
     assert bar == "█" * 5 + "░" * 5
 
 
-def test_progress_bar_full_at_level_boundary(plugin):
+def test_progress_bar_full_at_level_boundary():
     # At exactly level 2 (300 XP), next level floor=300, ceil=600, progress=0.
-    bar = plugin._progress_bar(xp=300, level=2, width=10)
+    bar = progress_bar(xp=300, level=2, width=10)
     assert bar == "░" * 10
 
 
@@ -286,7 +292,7 @@ async def test_award_xp_no_levelup_embed_when_announce_disabled(plugin, tmp_path
 
 
 async def test_award_xp_assigns_role_reward_on_levelup(plugin, tmp_path):
-    await plugin._update_config(1, lambda c: c.update({"role_rewards": {str(1): 999}}))
+    await plugin._store.update_config(1, lambda c: c.update({"role_rewards": {str(1): 999}}))
     role = MagicMock(spec=discord.Role)
     role.mention = "@Member"
     msg = _make_message(guild_id=1, user_id=42)
@@ -311,20 +317,12 @@ async def test_rank_command_responds_with_embed(plugin):
 
 async def test_rank_command_shows_rank_name(plugin):
     ctx = _make_ctx(guild_id=1, user_id=42)
-    await plugin._update_config(1, lambda c: c.update({"ranks": {"2": "Regular"}}))
+    await plugin._store.update_config(1, lambda c: c.update({"ranks": {"2": "Regular"}}))
     await plugin.add_xp(1, 42, 350)  # level 2
     await plugin.rank(ctx)
     embed = ctx.respond.call_args.kwargs["embed"]
     field_names = [f.name for f in embed.fields]
     assert "Rank" in field_names
-
-
-async def test_rank_command_fails_in_dm(plugin):
-    ctx = _make_ctx()
-    ctx.guild = None
-    await plugin.rank(ctx)
-    ctx.respond.assert_called_once()
-    assert ctx.respond.call_args.kwargs.get("ephemeral") is True
 
 
 # ── /leaderboard slash command ────────────────────────────────────────────────
@@ -378,7 +376,7 @@ async def test_give_xp_announces_levelup(plugin):
 async def test_set_rank_saves_config(plugin, tmp_path):
     ctx = _make_ctx(guild_id=1)
     await plugin.set_rank(ctx, level=5, name="Veteran")
-    config = plugin._read_config(1)
+    config = plugin._store.read_config(1)
     assert config["ranks"]["5"] == "Veteran"
 
 
@@ -392,7 +390,7 @@ async def test_remove_rank_deletes_entry(plugin):
     ctx = _make_ctx(guild_id=1)
     await plugin.set_rank(ctx, level=5, name="Veteran")
     await plugin.remove_rank(ctx, level=5)
-    config = plugin._read_config(1)
+    config = plugin._store.read_config(1)
     assert "5" not in config.get("ranks", {})
 
 
@@ -411,7 +409,7 @@ async def test_set_level_role_saves_role_id(plugin):
     role.id = 777
     role.mention = "@Member"
     await plugin.set_level_role(ctx, level=3, role=role)
-    config = plugin._read_config(1)
+    config = plugin._store.read_config(1)
     assert config["role_rewards"]["3"] == 777
 
 
@@ -419,7 +417,7 @@ async def test_set_level_role_saves_role_id(plugin):
 
 async def test_ranks_shows_configured_ranks(plugin):
     ctx = _make_ctx(guild_id=1)
-    await plugin._update_config(1, lambda c: c.update({"ranks": {"1": "Newbie", "10": "Veteran"}}))
+    await plugin._store.update_config(1, lambda c: c.update({"ranks": {"1": "Newbie", "10": "Veteran"}}))
     await plugin.ranks(ctx)
     embed = ctx.respond.call_args.kwargs.get("embed") or ctx.respond.call_args[1].get("embed")
     assert embed is not None
