@@ -104,6 +104,10 @@ class BaseContext:
         *,
         fields: list[tuple] | None = None,
         footer: str | None = None,
+        thumbnail: str | None = None,
+        image: str | None = None,
+        author: str | dict | None = None,
+        timestamp=None,
         color: discord.Color = discord.Color.blue(),
         ephemeral: bool = False,
         **kwargs,
@@ -112,13 +116,39 @@ class BaseContext:
 
         ``fields`` is a list of ``(name, value)`` or ``(name, value, inline)``
         tuples. ``inline`` defaults to ``True`` when omitted.
+
+        ``thumbnail`` and ``image`` accept a URL string.
+
+        ``author`` accepts a name string or a dict with ``name``, ``icon_url``,
+        and ``url`` keys.
+
+        ``timestamp=True`` uses the current UTC time; pass a ``datetime`` for a
+        specific timestamp.
         """
-        embed = discord.Embed(title=title, description=description, color=color)
+        ts = None
+        if timestamp is True:
+            ts = discord.utils.utcnow()
+        elif timestamp:
+            ts = timestamp
+
+        embed = discord.Embed(
+            title=title, description=description, color=color,
+            **({"timestamp": ts} if ts is not None else {}),
+        )
         for field in (fields or []):
             name, value, *rest = field
             embed.add_field(name=name, value=value, inline=rest[0] if rest else True)
         if footer:
             embed.set_footer(text=footer)
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
+        if image:
+            embed.set_image(url=image)
+        if author is not None:
+            if isinstance(author, str):
+                embed.set_author(name=author)
+            else:
+                embed.set_author(**author)
         await self.respond(embed=embed, ephemeral=ephemeral, **kwargs)
 
     async def dm(
