@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.8] — 2026-04-17
+
+Three additive features: `block_roles` middleware, `ctx.send_buttons()`, and `TicketPlugin`.
+
+### New: `block_roles(*role_ids)` middleware
+
+```python
+from easycord.middleware import block_roles
+
+bot.use(block_roles(MUTED_ROLE_ID, QUARANTINE_ROLE_ID))
+```
+
+Blocks commands for members who hold **any** of the listed role IDs. Passes silently in DMs — complement of `allowed_roles`. Accepts a custom `message` kwarg. Also available as `.block_roles()` on `Composer`.
+
+### New: `ctx.send_buttons()`
+
+```python
+action = await ctx.send_buttons(
+    "What would you like to do?",
+    buttons=[
+        {"label": "Approve", "value": "approve", "style": "green"},
+        {"label": "Deny",    "value": "deny",    "style": "red"},
+        {"label": "Skip",    "value": "skip"},
+    ],
+    timeout=60,
+    ephemeral=True,
+)
+```
+
+Sends a row of up to 5 labeled buttons; returns the `value` of the clicked button or `None` on timeout. Buttons accept string shorthand (`"Label"`) or dicts with `label`, `value` (defaults to label), and `style` (`"green"/"red"/"blue"/"gray"`).
+
+### New: `TicketPlugin`
+
+```python
+from easycord.plugins.tickets import TicketPlugin
+
+bot.add_plugin(TicketPlugin())
+```
+
+Drop-in support-ticket system. Registers `/open_ticket`, `/close_ticket`, `/add_to_ticket`, `/remove_from_ticket`, `/set_ticket_category`, `/set_support_role`, and `/ticket_config`. Ticket channels are private to the opener and the configured support role; closeable by the opener or anyone with `manage_channels`.
+
+---
+
 ## [2.7] — 2026-04-17
 
 New plugin, a modal shortcut, a global error handler, and expanded embed support.

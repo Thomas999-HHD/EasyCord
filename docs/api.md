@@ -120,6 +120,8 @@ Middleware runs on component interactions exactly as it does for slash commands.
 
 `await ctx.choose(prompt, options, *, timeout=60, placeholder="Select an option", ephemeral=False)` → `str | None` — options: strings or `{"label", "value", "description"}` dicts
 
+`await ctx.send_buttons(prompt, buttons, *, timeout=60, ephemeral=False)` → `str | None` — buttons: strings or `{"label", "value?", "style?"}` dicts (styles: `"green"/"red"/"blue"/"gray"`); max 5; returns clicked value or `None` on timeout
+
 `await ctx.paginate(pages, *, timeout=120, ephemeral=False)` — Prev/Next multi-page embed/text
 
 `await ctx.prompt(label, *, placeholder=None, max_length=None, timeout=660)` → `str | None` — single-field modal shortcut; returns submitted text or `None` on timeout/dismiss
@@ -237,6 +239,7 @@ All factories return `MiddlewareFn = async (ctx, next) -> None`.
 | `dm_only()` | invoked in a guild | — |
 | `admin_only(message)` | invoker lacks `administrator` permission | yes |
 | `allowed_roles(*role_ids, message)` | invoker holds none of the given role IDs | yes |
+| `block_roles(*role_ids, message)` | invoker holds any of the given role IDs | yes |
 | `channel_only(*channel_ids, message)` | channel not in the given set | yes |
 | `boost_only(message)` | invoker is not a server booster | yes |
 | `has_permission(*perms, message)` | invoker lacks any of the given permissions | yes |
@@ -306,3 +309,17 @@ Per-guild text snippet store. All commands require a guild context.
 | `/tag list` | — | List all tag names in this server |
 
 Storage: `tags_<guild_id>.json` in `data_dir`.
+
+---
+
+## `TicketPlugin` (`easycord.plugins.tickets`)
+
+`TicketPlugin(*, data_dir=".easycord/tickets")`
+
+Private support-ticket channels. Members open tickets; staff respond; opener or `manage_channels` can close.
+
+Slash commands: `/open_ticket [reason]` `/close_ticket` `/add_to_ticket member` `/remove_from_ticket member` `/set_ticket_category category` `/set_support_role role` `/ticket_config`
+
+Storage: `<data_dir>/<guild_id>.json` — `{"category_id": int|null, "support_role_id": int|null, "ticket_count": int}`
+
+Channel topic format (used to identify ticket channels): `Ticket #{N} | opener:{user_id}`
