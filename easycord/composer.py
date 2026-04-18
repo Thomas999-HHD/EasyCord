@@ -107,6 +107,15 @@ class Composer:
         self._middleware.append(_mw.allowed_roles(*role_ids, message=message))
         return self
 
+    def block_roles(
+        self,
+        *role_ids: int,
+        message: str = "You are not permitted to use this command.",
+    ) -> Composer:
+        """Add the built-in blocked-roles guard."""
+        self._middleware.append(_mw.block_roles(*role_ids, message=message))
+        return self
+
     def channel_only(
         self,
         *channel_ids: int,

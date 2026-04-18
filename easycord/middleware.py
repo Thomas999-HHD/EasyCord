@@ -76,6 +76,34 @@ def allowed_roles(*role_ids: int, message: str = "You don't have the required ro
     return handler
 
 
+def block_roles(
+    *role_ids: int,
+    message: str = "You are not permitted to use this command.",
+) -> MiddlewareFn:
+    """Block commands if the invoking member holds **any** of *role_ids*.
+
+    Silently passes when used outside a guild (DMs), so combine with
+    ``guild_only()`` if the command must be server-only.
+
+    Example::
+
+        bot.use(block_roles(MUTED_ROLE_ID, QUARANTINE_ROLE_ID))
+    """
+    role_set = frozenset(role_ids)
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is not None and not role_set.isdisjoint(r.id for r in member.roles):
+            await ctx.respond(message, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
 def channel_only(
     *channel_ids: int,
     message: str = "This command cannot be used in this channel.",

@@ -9,6 +9,7 @@ from easycord.middleware import (
     rate_limit,
     catch_errors,
 )
+from easycord.middleware import block_roles
 
 
 @pytest.fixture
@@ -444,3 +445,50 @@ async def test_has_permission_passes_in_dm():
     proceed = AsyncMock()
     await has_permission("kick_members")(ctx, proceed)
     proceed.assert_called_once()
+
+
+# ── block_roles ───────────────────────────────────────────────────────────────
+
+async def test_block_roles_passes_when_member_has_no_blocked_role():
+    ctx = _mw_make_ctx(guild=True, role_ids=[100, 200])
+    proceed = AsyncMock()
+    await block_roles(999)(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_block_roles_blocks_when_member_has_blocked_role():
+    ctx = _mw_make_ctx(guild=True, role_ids=[100, 200])
+    proceed = AsyncMock()
+    await block_roles(200)(ctx, proceed)
+    proceed.assert_not_called()
+    ctx.respond.assert_called_once()
+    assert ctx.respond.call_args.kwargs.get("ephemeral") is True
+
+
+async def test_block_roles_blocks_on_any_matching_role():
+    ctx = _mw_make_ctx(guild=True, role_ids=[50])
+    proceed = AsyncMock()
+    await block_roles(1, 50, 99)(ctx, proceed)
+    proceed.assert_not_called()
+
+
+async def test_block_roles_passes_in_dm():
+    ctx = _mw_make_ctx(guild=False)
+    proceed = AsyncMock()
+    await block_roles(999)(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_block_roles_passes_when_member_not_in_cache():
+    ctx = _mw_make_ctx(guild=True)
+    ctx.guild.get_member = MagicMock(return_value=None)
+    proceed = AsyncMock()
+    await block_roles(100)(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_block_roles_custom_message():
+    ctx = _mw_make_ctx(guild=True, role_ids=[10])
+    proceed = AsyncMock()
+    await block_roles(10, message="You are muted.")(ctx, proceed)
+    assert "You are muted." in ctx.respond.call_args[0][0]
