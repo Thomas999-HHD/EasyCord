@@ -69,6 +69,24 @@ class _EventsMixin:
         self._middleware.append(middleware)
         return middleware
 
+    def on_error(self, func: Callable) -> Callable:
+        """Register a global error handler called when any slash command raises an unhandled exception.
+
+        Can be used as a decorator or called directly::
+
+            @bot.on_error
+            async def handle_error(ctx, error):
+                await ctx.respond(f"Something went wrong: {error}", ephemeral=True)
+
+        Only one handler can be registered. A second call overwrites the first.
+        """
+        if not callable(func):
+            raise TypeError(
+                f"error handler must be callable, got {type(func).__name__!r}"
+            )
+        self._error_handler = func
+        return func
+
     # ── User & member lookup ──────────────────────────────────
 
     async def fetch_member(self, guild_id: int, user_id: int) -> discord.Member:
@@ -95,7 +113,7 @@ class _EventsMixin:
         status: Literal["online", "idle", "dnd", "invisible"] = "online",
         *,
         activity: str | None = None,
-        activity_type: Literal["playing", "watching", "listening"] = "playing",
+        activity_type: Literal["playing", "watching", "listening", "streaming"] = "playing",
     ) -> None:
         """Set the bot's presence status and optional activity text."""
         status_map = {
@@ -117,6 +135,80 @@ class _EventsMixin:
                 discord_activity = discord.Activity(
                     type=discord.ActivityType.listening, name=activity
                 )
+            elif activity_type == "streaming":
+                discord_activity = discord.Streaming(name=activity, url="")
             else:
                 discord_activity = discord.Game(activity)
         await self.change_presence(status=discord_status, activity=discord_activity)
+
+    # ── Component routing ─────────────────────────────────────
+
+    def component(self, id_or_func=None) -> Callable:
+        """Decorator that registers a persistent component (button / select-menu) handler.
+
+        The custom ID defaults to the function name when called without arguments::
+
+            @bot.component
+            async def confirm_ban(ctx):
+                await ctx.respond("Confirmed!")
+
+        Pass an explicit ID string to override::
+
+            @bot.component("confirm_ban")
+            async def handler(ctx):
+                await ctx.respond("Confirmed!")
+
+        For dynamic IDs, end the registered ID with ``_`` to enable prefix matching.
+        The suffix (everything after the prefix) is passed as the second argument::
+
+            @bot.component("ban_")
+            async def ban_button(ctx, suffix: str):
+                member = await ctx.guild.fetch_member(int(suffix))
+                await ctx.kick(member)
+        """
+        if callable(id_or_func):
+            self._component_handlers[id_or_func.__name__] = id_or_func  # type: ignore[attr-defined]
+            return id_or_func
+
+        custom_id: str = id_or_func  # type: ignore[assignment]
+
+        def decorator(func: Callable) -> Callable:
+            self._component_handlers[custom_id] = func  # type: ignore[attr-defined]
+            return func
+
+        return decorator
+
+    async def _dispatch_component(self, interaction: discord.Interaction) -> None:
+        """Route a component interaction to its registered handler."""
+        from .context import Context
+        from .middleware import build_chain
+
+        custom_id: str = (interaction.data or {}).get("custom_id", "")  # type: ignore[union-attr]
+
+        handler = self._component_handlers.get(custom_id)  # type: ignore[attr-defined]
+        suffix: str | None = None
+
+        if handler is None:
+            for registered_id, candidate in self._component_handlers.items():  # type: ignore[attr-defined]
+                if registered_id.endswith("_") and custom_id.startswith(registered_id):
+                    handler = candidate
+                    suffix = custom_id[len(registered_id):]
+                    break
+
+        if handler is None:
+            return
+
+        ctx = Context(interaction)
+
+        async def invoke() -> None:
+            if suffix is not None:
+                await handler(ctx, suffix)
+            else:
+                await handler(ctx)
+
+        await build_chain(ctx, invoke, self._middleware)()  # type: ignore[attr-defined]
+
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        """Intercept component interactions and dispatch to registered handlers."""
+        if interaction.type == discord.InteractionType.component:
+            await self._dispatch_component(interaction)
