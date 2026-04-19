@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easycord"
+version = "3.0.0"
+description = "Decorator-first Discord bot framework — slash commands, permissions, cooldowns, embeds, and per-guild config in a fraction of the discord.py code"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["discord", "discord.py", "bot", "framework", "slash commands", "middleware", "plugins"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+]
+dependencies = [
+    "discord.py>=2.0.0",
+]
+
+# TODO: fill in your name and email
+# authors = [
+#     { name = "Your Name", email = "you@example.com" },
+# ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+    "pytest-asyncio>=0.21",
+    "build",
+    "twine",
+]
+
+[project.urls]
+Homepage       = "https://github.com/rolling-codes/EasyCord"
+Repository     = "https://github.com/rolling-codes/EasyCord"
+Issues         = "https://github.com/rolling-codes/EasyCord/issues"
+Documentation  = "https://github.com/rolling-codes/EasyCord/tree/main/docs"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.setuptools.packages.find]
+include = ["easycord*"]
+
+[tool.setuptools.package-data]
+easycord = ["py.typed"]
