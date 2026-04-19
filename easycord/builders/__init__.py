@@ -1,4 +1,5 @@
-"""Fluent builders for Discord UI objects."""
+"""Builder utilities for EasyCord."""
+from .button import ButtonRowBuilder
 from .embed import EmbedBuilder
 
-__all__ = ["EmbedBuilder"]
+__all__ = ["ButtonRowBuilder", "EmbedBuilder"]
