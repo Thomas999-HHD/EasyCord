@@ -1,5 +1,17 @@
 # EasyCord
 
+## 🚀 EasyCord v3.0.0 Released
+
+EasyCord now includes:
+- Modal support (`@modal`)
+- Plugin UI namespacing
+- Central InteractionRegistry
+- Full interaction support in plugins
+
+👉 See the release notes for details.
+
+---
+
 EasyCord is a modern wrapper framework built on top of discord.py 2.x (not affiliated with other projects using the same name).
 
 A developer-friendly Python framework for building Discord bots, built on top of [discord.py 2.x](https://discordpy.readthedocs.io/).
