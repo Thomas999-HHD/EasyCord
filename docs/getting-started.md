@@ -1,6 +1,6 @@
 # Getting started
 
-This guide is the shortest path from "I installed EasyCord" to "I have a bot that responds to a command."
+This guide is the shortest path from "I installed the framework" to "I have a bot that responds to a command."
 
 ## 1) Create a Discord application
 
@@ -11,11 +11,11 @@ This guide is the shortest path from "I installed EasyCord" to "I have a bot tha
 4. Under **OAuth2 → URL Generator**, select the `bot` and `applications.commands` scopes.
 5. Invite the bot to a test server.
 
-## 2) Install EasyCord
+## 2) Install the package
 
 ```bash
-git clone https://github.com/rolling-codes/EasyCord.git
-cd EasyCord
+git clone https://github.com/rolling-codes/easycord.git
+cd easycord
 pip install -e .
 ```
 
@@ -35,7 +35,7 @@ from easycord import Bot
 
 bot = Bot()
 
-@bot.slash(description="Ping the bot")
+@bot.slash()
 async def ping(ctx):
     await ctx.respond("Pong!")
 
@@ -73,7 +73,7 @@ A simple rule helps beginners stay organized:
 from easycord import Plugin, slash
 
 class FunPlugin(Plugin):
-    @slash(description="Roll a die")
+    @slash()
     async def roll(self, ctx, sides: int = 6):
         import random
         await ctx.respond(str(random.randint(1, sides)))
@@ -83,10 +83,10 @@ Then load it from `bot.py`:
 
 ```python
 from easycord import Bot
-from plugins.fun import FunPlugin
+from server_commands import load_default_plugins
 
 bot = Bot()
-bot.add_plugin(FunPlugin())
+load_default_plugins(bot)
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 

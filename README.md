@@ -1,10 +1,10 @@
-# EasyCord
+# Discord Bot Framework
 
 ![PyPI](https://img.shields.io/pypi/v/easycord)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> EasyCord helps beginners build Discord bots faster by removing boilerplate around slash commands, components, plugins, and moderation helpers.
+> This framework helps beginners build Discord bots faster by removing boilerplate around slash commands, components, plugins, and moderation helpers.
 
 ## Start here
 
@@ -17,7 +17,7 @@ from easycord import Bot
 
 bot = Bot()
 
-@bot.slash(description="Ping the bot")
+@bot.slash()
 async def ping(ctx):
     await ctx.respond("Pong!")
 
@@ -26,11 +26,11 @@ bot.run("YOUR_TOKEN")
 
 If you want the shortest possible path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-## Why EasyCord exists
+## Why this exists
 
-EasyCord was built for the moment a bot stops being a weekend project and starts becoming the thing you actually rely on. The goal is simple: let beginners ship features without spending their first hour learning Discord plumbing.
+This framework was built for the moment a bot stops being a weekend project and starts becoming the thing you actually rely on. The goal is simple: let beginners ship features without spending their first hour learning Discord plumbing.
 
-| Task | Raw `discord.py` | EasyCord |
+| Task | Raw `discord.py` | This framework |
 | --- | --- | --- |
 | Slash commands | Build a command tree and sync it | `@bot.slash(...)` |
 | Permission checks | Repeat manual checks in each command | Declare permissions on the decorator |
@@ -74,13 +74,15 @@ my_bot/
 
 - [`examples/basic_bot.py`](examples/basic_bot.py): the smallest practical starter bot
 - [`examples/plugin_bot.py`](examples/plugin_bot.py): a feature split across plugins
+- [`examples/group_bot.py`](examples/group_bot.py): grouped slash commands with `SlashGroup`
 - [`docs/index.md`](docs/index.md): documentation home
 - [`docs/examples.md`](docs/examples.md): patterns and snippets
 - [`docs/fork-and-expand.md`](docs/fork-and-expand.md): how to grow a real bot project
+- [`server_commands/__init__.py`](server_commands/__init__.py): one place to load the bundled plugins
 
 ## Project backstory
 
-EasyCord started as a way to cut down the repetitive work of Discord bot development for a school server. That original goal still drives the project: make the first command easy, then make the second and third commands feel just as simple.
+This project started as a way to cut down the repetitive work of Discord bot development for a school server. That original goal still drives the project: make the first command easy, then make the second and third commands feel just as simple.
 
 ## License
 

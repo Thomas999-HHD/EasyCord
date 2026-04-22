@@ -1,5 +1,31 @@
 # API reference
 
+## Start here
+
+If you are learning the framework for the first time, these are the main building blocks:
+
+| Goal | Use |
+| --- | --- |
+| Make a command | `@bot.slash(...)` |
+| Load multiple plugins | `bot.add_plugins(...)` |
+| Load multiple groups | `bot.add_groups(...)` |
+| Group related commands | subclass `SlashGroup` |
+| Add buttons or select menus | `@bot.component(...)` |
+| Add context menus | `@bot.user_command(...)` / `@bot.message_command(...)` |
+| Build a bot in steps | `Composer()` |
+| Save guild settings | `ServerConfigStore` |
+
+```python
+from easycord import Bot
+from easycord.plugins import WelcomePlugin, LevelsPlugin
+
+bot = Bot()
+bot.add_plugins(WelcomePlugin(), LevelsPlugin())
+```
+
+That one pattern covers most starter bots: create the bot, load the plugins you
+need, then register a few slash commands on top.
+
 ## `easycord.Bot`
 
 `Bot(*, intents=None, auto_sync=True, **kwargs)`
@@ -35,7 +61,9 @@
 
 `@Bot.on_error` / `Bot.on_error(func)` — register a global error handler `async def handler(ctx, error)` called when any slash command raises an unhandled exception; overwrites any previously registered handler
 
-`Bot.add_plugin(plugin)` — load plugin; raises `TypeError` / `ValueError` on bad input or duplicate
+`Bot.add_plugin(plugin)` — load one plugin; raises `TypeError` / `ValueError` on bad input or duplicate
+
+`Bot.add_plugins(*plugins)` — load several plugins in one call
 
 `await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
 
@@ -259,7 +287,15 @@ Raises `ValueError` if `.title()` was not called before `.send()`.
 
 ## `easycord.SlashGroup`
 
-Subclass with `name` and `description` class attributes. Use `@slash` on methods. Register with `bot.add_group(MyGroup())`.
+Subclass with `name` and `description` class attributes. Use `@slash` on methods, then register with `bot.add_group(MyGroup())` or `bot.add_groups(...)`.
+
+Group-level options:
+
+- `guild_only=True` keeps the whole group out of DMs.
+- `allowed_contexts=...` limits where the group can appear.
+- `allowed_installs=...` controls which install types can use it.
+- `nsfw=True` marks the entire group as age-gated.
+- `default_permissions=...` applies one permission set to every command in the group.
 
 ---
 
@@ -277,6 +313,7 @@ Fluent builder — chains middleware + plugins, returns a configured `Bot`.
 | `.guild_only()` | Add `guild_only` middleware |
 | `.use(middleware)` | Add custom middleware |
 | `.add_plugin(plugin)` | Queue a plugin |
+| `.add_plugins(*plugins)` | Queue several plugins |
 | `.build()` | Return configured `Bot` |
 
 ---

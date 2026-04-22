@@ -23,7 +23,7 @@ from ._context_ui import UIMixin
 class Context(UIMixin, ChannelMixin, ModerationMixin, BaseContext):
     """Wraps a ``discord.Interaction`` and gives you a full response/moderation API.
 
-    EasyCord passes a ``Context`` as the first argument to every slash command::
+    This framework passes a ``Context`` as the first argument to every slash command::
 
         @bot.slash(description="Ping the bot")
         async def ping(ctx):

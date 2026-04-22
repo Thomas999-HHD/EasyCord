@@ -1,4 +1,4 @@
-"""EasyCord Bot — thin lifecycle shell wiring together the mixin modules."""
+"""Bot shell wiring together the mixin modules."""
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +21,7 @@ logger = logging.getLogger("easycord")
 
 class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Client):
     """
-    The main EasyCord bot — a discord.Client with slash commands,
+    The main bot — a discord.Client with slash commands,
     middleware, event listeners, and plugins built in.
 
     Quick start::

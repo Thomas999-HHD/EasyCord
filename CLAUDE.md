@@ -1,4 +1,4 @@
-# EasyCord — AI context
+# AI context
 
 > Read this file before reading anything else. It tells you where to look so you don't waste tokens.
 

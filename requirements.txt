@@ -1,2 +1,2 @@
-# EasyCord requirements
+# Project requirements
 discord.py>=2.0.0
