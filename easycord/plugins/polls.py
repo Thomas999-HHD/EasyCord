@@ -1,4 +1,4 @@
-"""Button-based polling plugin for EasyCord bots."""
+"""Button-based polling plugin for bots."""
 from __future__ import annotations
 
 import discord

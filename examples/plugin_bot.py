@@ -1,7 +1,7 @@
 """
 examples/plugin_bot.py
 ~~~~~~~~~~~~~~~~~~~~~~
-Demonstrates the EasyCord plugin system.
+Demonstrates the plugin system.
 
 Each ``Plugin`` subclass groups related commands and event handlers
 into a self-contained, reloadable unit.

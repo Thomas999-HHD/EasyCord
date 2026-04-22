@@ -1,4 +1,4 @@
-"""Built-in middleware factories and chain-builder utilities for EasyCord bots."""
+"""Built-in middleware factories and chain-builder utilities for bots."""
 from __future__ import annotations
 
 import contextlib

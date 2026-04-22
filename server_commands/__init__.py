@@ -1,5 +1,5 @@
 """
-Server command plugins for EasyCord.
+Server command plugins.
 
 Import plugins from here (or from individual modules) and load them into your bot:
 

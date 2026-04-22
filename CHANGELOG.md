@@ -257,7 +257,7 @@ Returns the invoking user as `discord.Member` (with `.roles`, `.nick`, `.guild_p
 
 ## [2.1] — 2026-04-13
 
-`LevelsPlugin` — drop-in XP, leveling, and named rank system for any EasyCord bot.
+`LevelsPlugin` — drop-in XP, leveling, and named rank system for any bot.
 
 **Jump to docs:**
 

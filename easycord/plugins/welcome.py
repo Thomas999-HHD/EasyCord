@@ -1,4 +1,4 @@
-"""Configurable welcome / goodbye plugin for EasyCord bots."""
+"""Configurable welcome / goodbye plugin for bots."""
 from __future__ import annotations
 
 from pathlib import Path

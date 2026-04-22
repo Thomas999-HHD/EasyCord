@@ -1,6 +1,6 @@
 # Release notes for 3.1.0
 
-This update focuses on two things: making EasyCord easier to learn, and exposing more of the `discord.py` features that beginners keep reaching for.
+This update focuses on two things: making the framework easier to learn, and exposing more of the `discord.py` features that beginners keep reaching for.
 
 ## What changed
 

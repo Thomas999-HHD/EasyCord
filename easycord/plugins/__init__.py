@@ -1,4 +1,4 @@
-"""Optional first-party EasyCord plugins."""
+"""Optional first-party plugins."""
 from .levels import LevelsPlugin
 from .polls import PollsPlugin
 from .tags import TagsPlugin

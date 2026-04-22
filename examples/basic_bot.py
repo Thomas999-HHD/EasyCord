@@ -1,4 +1,4 @@
-"""The smallest practical EasyCord bot."""
+"""The smallest practical bot."""
 
 from easycord import Bot
 

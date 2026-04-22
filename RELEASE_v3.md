@@ -1,4 +1,4 @@
-# 🚀 EasyCord v3.0.0 – Unified Interaction System
+# 🚀 v3.0.0 – Unified Interaction System
 
 A modern, plugin-first Discord interaction framework with full support for components, context menus, and modals.
 
@@ -102,7 +102,7 @@ Component ID "submit" already registered by:
 ## 📋 Debug Logging
 
 ```
-[EasyCord] Registered MODAL "feedbackplugin:feedback_form"
+[Framework] Registered MODAL "feedbackplugin:feedback_form"
   → Plugin: FeedbackPlugin
   → Method: handle_feedback
 ```
@@ -217,7 +217,7 @@ git push origin v3.0.0
 
 ```bash
 gh release create v3.0.0 \
-  --title "EasyCord v3.0.0 – Unified Interaction System" \
+  --title "v3.0.0 – Unified Interaction System" \
   --notes-file pr_description.md
 ```
 
@@ -238,7 +238,7 @@ print(easycord.__version__)
 
 # 🧠 Summary
 
-EasyCord is now a complete Discord interaction framework with:
+This framework is now a complete Discord interaction framework with:
 
 * Slash Commands
 * Context Menus

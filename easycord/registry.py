@@ -21,7 +21,7 @@ class InteractionRegistry:
             )
         self.components[custom_id] = {"func": func, "plugin": source_plugin}
         logger.debug(
-            "[EasyCord] Registered COMPONENT %r\n  → Plugin: %s\n  → Method: %s",
+            "Registered COMPONENT %r\n  → Plugin: %s\n  → Method: %s",
             custom_id,
             source_plugin or "Bot",
             func.__name__,
@@ -37,7 +37,7 @@ class InteractionRegistry:
             )
         self.modals[custom_id] = {"func": func, "plugin": source_plugin}
         logger.debug(
-            "[EasyCord] Registered MODAL %r\n  → Plugin: %s\n  → Method: %s",
+            "Registered MODAL %r\n  → Plugin: %s\n  → Method: %s",
             custom_id,
             source_plugin or "Bot",
             func.__name__,

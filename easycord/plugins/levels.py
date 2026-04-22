@@ -1,4 +1,4 @@
-"""Per-guild XP leveling and named rank system for EasyCord bots."""
+"""Per-guild XP leveling and named rank system for bots."""
 from __future__ import annotations
 
 import time

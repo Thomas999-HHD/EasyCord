@@ -109,7 +109,7 @@ class _GuildMixin:
     ) -> None:
         """Send a message via a webhook in the given channel.
 
-        On first call for a channel, creates a webhook named ``"EasyCord"`` and
+        On first call for a channel, creates a webhook named ``"Webhook"`` and
         caches it. Subsequent calls reuse the cached webhook.
 
         Example::
@@ -122,7 +122,7 @@ class _GuildMixin:
                 raise RuntimeError(
                     f"Channel {channel_id} is not a text channel or was not found in cache"
                 )
-            self._webhooks[channel_id] = await channel.create_webhook(name="EasyCord")  # type: ignore[attr-defined]
+            self._webhooks[channel_id] = await channel.create_webhook(name="Webhook")  # type: ignore[attr-defined]
         webhook = self._webhooks[channel_id]  # type: ignore[attr-defined]
         await webhook.send(content, username=username, avatar_url=avatar_url, embed=embed, **kwargs)
 

@@ -705,7 +705,7 @@ async def test_send_webhook_creates_and_sends(bot):
     channel.create_webhook = AsyncMock(return_value=webhook)
     bot.get_channel = MagicMock(return_value=channel)
     await bot.send_webhook(111, "hello")
-    channel.create_webhook.assert_called_once_with(name="EasyCord")
+    channel.create_webhook.assert_called_once_with(name="Webhook")
     webhook.send.assert_called_once_with("hello", username=None, avatar_url=None, embed=None)
 
 

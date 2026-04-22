@@ -1,4 +1,4 @@
-# EasyCord — agent context map
+# Agent context map
 
 > Read CLAUDE.md first. This file covers architecture and extension points.
 

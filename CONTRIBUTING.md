@@ -1,12 +1,12 @@
-# Contributing to EasyCord
+# Contributing
 
 Thanks for your interest in contributing!
 
 ## 🛠 Development Setup
 
 ```bash
-git clone https://github.com/rolling-codes/EasyCord.git
-cd EasyCord
+git clone https://github.com/rolling-codes/easycord.git
+cd easycord
 pip install -e .[dev]
 ```
 
@@ -25,4 +25,4 @@ pytest
 - Create a feature branch
 - Submit a PR with clear description
 
-Thanks for helping improve EasyCord!
+Thanks for helping improve the project!

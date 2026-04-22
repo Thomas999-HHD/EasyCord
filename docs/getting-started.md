@@ -1,6 +1,6 @@
 # Getting started
 
-This guide is the shortest path from "I installed EasyCord" to "I have a bot that responds to a command."
+This guide is the shortest path from "I installed the framework" to "I have a bot that responds to a command."
 
 ## 1) Create a Discord application
 
@@ -11,11 +11,11 @@ This guide is the shortest path from "I installed EasyCord" to "I have a bot tha
 4. Under **OAuth2 → URL Generator**, select the `bot` and `applications.commands` scopes.
 5. Invite the bot to a test server.
 
-## 2) Install EasyCord
+## 2) Install the package
 
 ```bash
-git clone https://github.com/rolling-codes/EasyCord.git
-cd EasyCord
+git clone https://github.com/rolling-codes/easycord.git
+cd easycord
 pip install -e .
 ```
 

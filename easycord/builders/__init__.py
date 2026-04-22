@@ -1,4 +1,4 @@
-"""Builder utilities for EasyCord."""
+"""Builder utilities for the framework."""
 from .button import ButtonRowBuilder
 from .embed import EmbedBuilder
 from .modal import ModalBuilder

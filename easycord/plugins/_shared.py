@@ -1,4 +1,4 @@
-"""Shared helpers for the bundled EasyCord plugins."""
+"""Shared helpers for the bundled plugins."""
 from __future__ import annotations
 
 import json

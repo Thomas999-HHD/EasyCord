@@ -1,6 +1,6 @@
-# EasyCord documentation
+# Documentation
 
-EasyCord is a decorator-first framework for building Discord bots on top of `discord.py>=2.0`.
+This framework is a decorator-first toolkit for building Discord bots on top of `discord.py>=2.0`.
 
 The documentation is organized around one beginner-friendly path: install the package, make one command, then grow into plugins and shared helpers.
 
@@ -12,10 +12,11 @@ The documentation is organized around one beginner-friendly path: install the pa
 4. [`fork-and-expand.md`](fork-and-expand.md) — turn a starter bot into a real project structure.
 5. [`api.md`](api.md) — reference signatures when you already know what you want to build.
 6. [`release-notes.md`](release-notes.md) — summary of the latest refactor and feature update.
+7. [`release-notes-3.1.2.md`](release-notes-3.1.2.md) — notes for the next simplification pass.
 
-## What EasyCord removes
+## What this removes
 
-| Beginner pain | EasyCord answer |
+| Beginner pain | This framework answer |
 | --- | --- |
 | Building and syncing a command tree | `@bot.slash(...)` |
 | Writing the same permission checks repeatedly | Permission guards on the decorator |
@@ -32,4 +33,4 @@ The documentation is organized around one beginner-friendly path: install the pa
 
 ## Design goal
 
-EasyCord exists to make the first useful Discord bot feel obvious. If a feature does not help beginners ship faster or keep their project organized, it should stay out of the way.
+This framework exists to make the first useful Discord bot feel obvious. If a feature does not help beginners ship faster or keep their project organized, it should stay out of the way.

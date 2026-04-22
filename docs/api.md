@@ -2,7 +2,7 @@
 
 ## Start here
 
-If you are learning EasyCord for the first time, these are the main building blocks:
+If you are learning the framework for the first time, these are the main building blocks:
 
 | Goal | Use |
 | --- | --- |
@@ -287,7 +287,15 @@ Raises `ValueError` if `.title()` was not called before `.send()`.
 
 ## `easycord.SlashGroup`
 
-Subclass with `name` and `description` class attributes. Use `@slash` on methods. Register with `bot.add_group(MyGroup())`.
+Subclass with `name` and `description` class attributes. Use `@slash` on methods, then register with `bot.add_group(MyGroup())` or `bot.add_groups(...)`.
+
+Group-level options:
+
+- `guild_only=True` keeps the whole group out of DMs.
+- `allowed_contexts=...` limits where the group can appear.
+- `allowed_installs=...` controls which install types can use it.
+- `nsfw=True` marks the entire group as age-gated.
+- `default_permissions=...` applies one permission set to every command in the group.
 
 ---
 

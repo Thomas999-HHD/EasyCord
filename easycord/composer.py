@@ -1,4 +1,4 @@
-"""Fluent builder for composing an EasyCord bot."""
+"""Fluent builder for composing a bot."""
 from __future__ import annotations
 
 import logging

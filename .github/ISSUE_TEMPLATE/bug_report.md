@@ -13,7 +13,7 @@ What should happen?
 
 ### Environment
 - Python version:
-- EasyCord version:
+- Project version:
 
 ### Additional Info
 Screenshots/logs if applicable.

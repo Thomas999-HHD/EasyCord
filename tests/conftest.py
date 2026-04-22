@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the EasyCord test suite."""
+"""Shared pytest fixtures for the test suite."""
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 

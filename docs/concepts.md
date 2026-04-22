@@ -27,7 +27,7 @@ async def hello(interaction: discord.Interaction, name: str, loud: bool = False)
     await interaction.response.send_message(msg.upper() if loud else msg)
 ```
 
-### EasyCord way
+### Framework way
 
 Parameters become Discord options from type annotations automatically. No tree, no interaction, no manual sync.
 
@@ -38,9 +38,9 @@ async def hello(ctx, name: str, loud: bool = False):
     await ctx.respond(msg.upper() if loud else msg)
 ```
 
-### How EasyCord maps to discord.py internally
+### How the framework maps to discord.py internally
 
-EasyCord must register an `app_commands.Command` callback that receives a `discord.Interaction`. It wraps your handler to:
+The framework must register an `app_commands.Command` callback that receives a `discord.Interaction`. It wraps your handler to:
 
 1. build a `Context(interaction)`
 2. run the middleware chain
@@ -48,7 +48,7 @@ EasyCord must register an `app_commands.Command` callback that receives a `disco
 
 ### Signature rewriting
 
-`discord.py` discovers slash options by inspecting the registered callback signature. EasyCord rewrites the internal callback's first parameter to `interaction: discord.Interaction` (what discord.py expects), then strips the leading `ctx` from your handler before forwarding remaining parameters.
+`discord.py` discovers slash options by inspecting the registered callback signature. The framework rewrites the internal callback's first parameter to `interaction: discord.Interaction` (what discord.py expects), then strips the leading `ctx` from your handler before forwarding remaining parameters.
 
 - **Standalone handler**: `async def cmd(ctx, ...)`
 - **Plugin handler**: `async def cmd(self, ctx, ...)`
@@ -75,9 +75,9 @@ async def kick(interaction: discord.Interaction, member: discord.Member):
     await interaction.response.send_message(f"Kicked {member.display_name}.")
 ```
 
-### EasyCord way
+### Framework way
 
-Declare the required permissions on the decorator. EasyCord checks them before your handler runs and responds ephemerally with a clear error if any are missing.
+Declare the required permissions on the decorator. The framework checks them before your handler runs and responds ephemerally with a clear error if any are missing.
 
 ```python
 @bot.slash(description="Kick a member", permissions=["kick_members"])
@@ -116,7 +116,7 @@ async def roll(interaction: discord.Interaction):
     await interaction.response.send_message(str(random.randint(1, 6)))
 ```
 
-### EasyCord way
+### Framework way
 
 One argument on the decorator. The dict and the time check are handled internally, per-command and per-user.
 
@@ -143,7 +143,7 @@ async def on_message(message):
     ...  # only one allowed without extra wiring
 ```
 
-### EasyCord way
+### Framework way
 
 Multiple handlers for the same event are all called. No subclassing needed.
 
@@ -155,7 +155,7 @@ async def log_message(message): ...
 async def filter_message(message): ...
 ```
 
-EasyCord overrides `discord.Client.dispatch` and schedules each handler as an `asyncio.create_task`, so a failure in one handler doesn't block the others.
+The framework overrides `discord.Client.dispatch` and schedules each handler as an `asyncio.create_task`, so a failure in one handler doesn't block the others.
 
 ---
 
@@ -208,7 +208,7 @@ async def setup(bot):
     await bot.add_cog(FunCog(bot))
 ```
 
-### EasyCord way
+### Framework way
 
 ```python
 from easycord import Plugin, slash, on

@@ -1,6 +1,6 @@
 # Fork and expand this project
 
-EasyCord works best when you split the bot into small feature files early.
+This framework works best when you split the bot into small feature files early.
 
 ## Recommended structure
 

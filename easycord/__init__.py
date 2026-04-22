@@ -1,5 +1,5 @@
 """
-EasyCord — a developer-friendly framework for building Discord bots.
+A developer-friendly framework for building Discord bots.
 
 Quick start::
 
