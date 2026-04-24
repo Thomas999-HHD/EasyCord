@@ -1,5 +1,4 @@
 # EasyCord 
-![PyPI](https://img.shields.io/pypi/v/easycord)
 ![Version](https://img.shields.io/badge/v-3.2.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -9,7 +8,7 @@
 
 ## Start here
 
-1. Install the package: `pip install easycord`
+1. Install from GitHub: `pip install git+https://github.com/rolling-codes/EasyCord.git`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -27,6 +26,28 @@ bot.run("YOUR_TOKEN")
 ```
 
 If you want the shortest possible path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
+
+## Installation
+
+### From GitHub (via pip)
+
+```bash
+pip install git+https://github.com/rolling-codes/EasyCord.git
+```
+
+### Clone and install locally
+
+```bash
+git clone https://github.com/rolling-codes/EasyCord.git
+cd EasyCord
+pip install .
+```
+
+### With dev dependencies
+
+```bash
+pip install -e ".[dev]"
+```
 
 ## Localization (multi-language support)
 
