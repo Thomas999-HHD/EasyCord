@@ -45,6 +45,10 @@ override that behavior with environment variables:
 `Bot.load_builtin_plugins()` loads the bundled first-party plugin pack:
 `WelcomePlugin`, `TagsPlugin`, `PollsPlugin`, and `LevelsPlugin`.
 
+Other bundled plugins are available but not auto-loaded:
+`AIPlugin` (multi-provider AI assistant), `OpenClaudePlugin` (Anthropic Claude shortcut),
+`OpenAIProvider`, `GeminiProvider`, `OllamaProvider`.
+
 ### Slash commands
 
 `Bot.slash(name=None, *, description, guild_id=None, guild_only=False, ephemeral=False, permissions=None, cooldown=None, autocomplete=None, choices=None)`

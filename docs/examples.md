@@ -47,6 +47,81 @@ bot.add_plugin(MyPlugin())
 
 For the bundled example plugins, `server_commands/__init__.py` keeps the default plugin list in one place and exposes `load_default_plugins(bot)` so bot startup stays simple.
 
+## AI assistant plugin (multi-provider)
+
+The `AIPlugin` supports Anthropic Claude, OpenAI GPT, Google Gemini, Ollama (local), and other LLM providers. Each provider is independently optional — install only the SDK you need.
+
+### With Anthropic Claude
+
+```python
+from easycord import Bot
+from easycord.plugins import OpenClaudePlugin
+
+bot = Bot()
+bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))
+# or use ANTHROPIC_API_KEY env var: bot.add_plugin(OpenClaudePlugin())
+
+bot.run("YOUR_DISCORD_TOKEN")
+```
+
+Members use `/ask "your question"` to query Claude.
+
+### With OpenAI (ChatGPT/GPT-4)
+
+```python
+from easycord import Bot
+from easycord.plugins import AIPlugin, OpenAIProvider
+
+bot = Bot()
+provider = OpenAIProvider(api_key="sk-...")  # or OPENAI_API_KEY env var
+bot.add_plugin(AIPlugin(provider=provider))
+
+bot.run("YOUR_DISCORD_TOKEN")
+```
+
+### With Google Gemini
+
+```python
+from easycord import Bot
+from easycord.plugins import AIPlugin, GeminiProvider
+
+bot = Bot()
+provider = GeminiProvider(api_key="AIzaSy...")  # or GOOGLE_API_KEY env var
+bot.add_plugin(AIPlugin(provider=provider))
+
+bot.run("YOUR_DISCORD_TOKEN")
+```
+
+### With local Ollama
+
+```python
+from easycord import Bot
+from easycord.plugins import AIPlugin, OllamaProvider
+
+bot = Bot()
+provider = OllamaProvider(model="llama2")  # local Ollama required
+bot.add_plugin(AIPlugin(provider=provider))
+
+bot.run("YOUR_DISCORD_TOKEN")
+```
+
+### Custom provider
+
+Create a subclass of `AIProvider`:
+
+```python
+from easycord.plugins._ai_providers import AIProvider
+
+class MyProvider(AIProvider):
+    def _init_client(self):
+        # Lazy-initialize your SDK
+        pass
+
+    def query(self, prompt: str) -> str:
+        # Call your API, return response text
+        pass
+```
+
 ## Grouped commands
 
 ```python
