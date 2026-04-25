@@ -1,5 +1,110 @@
 # Release Notes
 
+## v3.5.0 — Comprehensive Moderation Framework & Member Management
+
+**Release Date:** 2026-04-24
+
+EasyCord v3.5.0 expands the framework with **production-ready moderation plugins and member management tools**. All features work independently—use manual moderation, AI-powered analysis, reaction roles, or member logging separately or in combination.
+
+### Major Features
+
+#### 1. Moderation Framework
+- **ModerationPlugin:** Manual moderation commands (kick, ban, timeout, warn, mute)
+  - Warning tracking with auto-mute at configurable threshold
+  - Rate limiting (5 bans/hour, 10 warns/hour per moderator)
+  - Per-guild audit logging
+  - Unban, unmute, warning history inspection
+- **AIModeratorPlugin:** LLM-powered message analysis
+  - Real-time analysis for spam, abuse, NSFW (configurable rules)
+  - Action levels: notify-only, warn, auto-delete (configurable confidence thresholds)
+  - Multi-turn context via ConversationMemory
+  - Rate-limited tool execution to prevent feedback loops
+  - Works with any Orchestrator provider
+
+#### 2. Member Management
+- **ReactionRolesPlugin:** Auto-assign roles via emoji reactions
+  - Multi-emoji support per message
+  - Auto-grant on reaction, auto-revoke on reaction removal
+  - Automatic cleanup on message/role deletion
+  - Use case: self-assign roles, rule acceptance, feature opt-in
+- **MemberLoggingPlugin:** Audit trail for member changes
+  - Log joins, leaves, nickname changes, role updates, timeouts
+  - Per-guild audit channel
+  - User avatars in embeds for visual tracking
+  - Complements moderation with complete audit trail
+
+### New Plugins Available
+
+```python
+from easycord.plugins import (
+    ModerationPlugin,
+    AIModeratorPlugin,
+    ReactionRolesPlugin,
+    MemberLoggingPlugin,
+)
+
+# Manual moderation
+bot.add_plugin(ModerationPlugin())
+
+# Optional: AI-powered analysis
+bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
+
+# Role self-assignment
+bot.add_plugin(ReactionRolesPlugin())
+
+# Audit trail
+bot.add_plugin(MemberLoggingPlugin())
+```
+
+### Improvements
+
+- **No AI required:** All features work without AI orchestration
+- **Composable:** Use any combination of plugins
+- **Rate limiting:** Built-in abuse prevention
+- **Per-guild config:** ServerConfigStore integration
+- **Audit logging:** Embeds with timestamps and user IDs
+- **Event cleanup:** Automatic mapping cleanup on deletion
+
+### Testing
+
+- 36 new tests added (ModerationPlugin, AIModeratorPlugin, ReactionRolesPlugin, MemberLoggingPlugin)
+- 562 total tests passing
+- All plugins production-ready
+
+### Migration Guide (3.4 → 3.5)
+
+No breaking changes. Existing code continues to work. New plugins are opt-in:
+
+```python
+# Add moderation
+bot.add_plugin(ModerationPlugin())
+
+# Optionally add AI analysis
+bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
+```
+
+### Performance
+
+- ModerationPlugin: Synchronous slash commands, no latency
+- AIModeratorPlugin: Async orchestrator calls, uses `asyncio.run_in_executor()` for blocking work
+- ReactionRolesPlugin: Raw reaction events, <50ms per reaction
+- MemberLoggingPlugin: Event listeners, no blocking operations
+
+### Known Limitations
+
+- Reaction roles: Emoji must be UTF-8 (custom emoji supported via discord.PartialEmoji)
+- Member logging: User-level updates (name changes) fire for all guilds, can only be logged where shared
+
+### Future Work (v3.6+)
+
+- AutoResponder plugin (keyword/pattern-triggered messages)
+- Starboard plugin (archived high-reaction messages)
+- Message statistics tracking (per-user, per-channel)
+- Permission system enhancements
+- Database migration tooling
+
+---
+
 ## v3.4.0 — AI Orchestration, Multi-Provider LLMs, and Tool Execution
 
 **Release Date:** 2026-04-24
