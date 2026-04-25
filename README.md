@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-517%20passing-brightgreen)
 
-> This framework helps beginners build Discord bots faster by removing boilerplate around slash commands, components, plugins, and moderation helpers.
+> A production-grade Discord bot framework that removes boilerplate around commands, plugins, middleware, and AI orchestration. Build command-driven bots fast. Scale to AI-powered agents with intelligent tool routing, multi-provider LLM support, and permission-gated function calling.
 
 ## Start here
 
@@ -101,18 +101,133 @@ Members use `/ask "your question"` to query Claude API. Responses are automatica
 
 **Setup:** Install `anthropic` SDK and set `ANTHROPIC_API_KEY` environment variable.
 
+See [`docs/examples.md`](docs/examples.md) for examples with OpenAI, Gemini, Groq, Ollama, and custom providers.
+
+## AI Tool Registration (function calling)
+
+Let AI safely call into your bot via `@ai_tool` decorator:
+
+```python
+from easycord import Plugin, ai_tool, ToolSafety
+from datetime import timedelta
+
+class ModToolsPlugin(Plugin):
+    @ai_tool(description="Check if user is a member of the server")
+    async def is_member(self, ctx, user_id: int):
+        try:
+            await ctx.guild.fetch_member(user_id)
+            return "User is a member"
+        except:
+            return "User is not a member"
+
+    @ai_tool(
+        description="Timeout a user from the server",
+        safety=ToolSafety.CONTROLLED,
+        require_admin=True,
+        parameters={
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "integer"},
+                "seconds": {"type": "integer"}
+            }
+        }
+    )
+    async def timeout_user(self, ctx, user_id: int, seconds: int = 3600):
+        member = await ctx.guild.fetch_member(user_id)
+        await member.timeout(timedelta(seconds=seconds))
+        return f"Timed out {member.name} for {seconds}s"
+```
+
+Tools are categorized by safety:
+- **SAFE** — read-only (queries, lookups, member info)
+- **CONTROLLED** — validated actions (moderation, database writes, role changes)
+- **RESTRICTED** — never expose to AI (admin-only, destructive operations)
+
+Each tool can require `require_admin=True`, specific `allowed_roles`, or `allowed_users`.
+
+## AI Orchestration (multi-provider routing & tool calling)
+
+Use the orchestration layer for intelligent provider selection with fallback chains:
+
+```python
+from easycord import Bot, Plugin, slash, Orchestrator, FallbackStrategy, RunContext
+from easycord.plugins import AnthropicProvider, GroqProvider, OpenAIProvider
+
+bot = Bot()
+
+# Create orchestrator with fallback chain
+orchestrator = Orchestrator(
+    strategy=FallbackStrategy([
+        AnthropicProvider(),  # Try first
+        GroqProvider(),       # Fallback
+        OpenAIProvider(),     # Last resort
+    ]),
+    tools=bot.tool_registry,  # Auto-includes @ai_tool methods
+)
+
+class AIPlugin(Plugin):
+    @slash(description="Ask AI with tool access")
+    async def ask_with_tools(self, ctx, prompt: str):
+        await ctx.defer()
+        response = await orchestrator.run(
+            RunContext(
+                messages=[{"role": "user", "content": prompt}],
+                ctx=ctx,
+                max_steps=5,  # Max tool calls before returning
+            )
+        )
+        await ctx.respond(response.text[:2000])
+
+bot.add_plugin(AIPlugin())
+bot.run("YOUR_TOKEN")
+```
+
+The orchestrator:
+- **Routes intelligently:** tries best provider first, falls back if it fails
+- **Detects tool calls:** when AI requests a function call
+- **Executes safely:** checks permissions, enforces timeouts, handles exceptions
+- **Loops:** feeds tool results back to AI, continues until final response
+- **Respects constraints:** admin-only, role-gated, and user-allowlisted tools
+
+## Features at a glance
+
+**Foundations:**
+- Slash commands, buttons, select menus, modals — all with decorators
+- Permission checks (built-in or custom via middleware)
+- Cooldowns, rate limiting, error handling
+- Plugins: reusable feature bundles with lifecycle hooks
+- Per-guild configuration and persistent storage (SQLite or in-memory)
+- Localization: user/guild/default locale fallback
+
+**AI & Orchestration:**
+- **9 LLM providers:** Anthropic (Claude), OpenAI (GPT), Google (Gemini), Groq, Mistral, HuggingFace, Together.ai, Ollama (local), LiteLLM (proxy)
+- **Multi-provider routing:** fallback chain (try Anthropic → Groq → OpenAI if first fails)
+- **Tool registration:** expose Discord commands and custom functions to AI via `@ai_tool` decorator
+- **Permission-gated tools:** SAFE (read-only), CONTROLLED (validated), RESTRICTED (never expose) — each tool can require admin/roles/users
+- **Tool execution loop:** AI detects function calls, executes with timeout + exception handling, feeds results back
+- **Smart truncation:** responses auto-fit Discord's 2000-char limit
+
+**Developer experience:**
+- Minimal boilerplate — decorators handle registration
+- Middleware for cross-cutting concerns (logging, auth, rate limits)
+- Fluent builder (`Composer`) for declarative bot setup
+- Context object with shortcuts for common operations
+- Embed helpers with buttons/selects built-in
+
 ## Why this exists
 
-This framework was built for the moment a bot stops being a weekend project and starts becoming the thing you actually rely on. The goal is simple: let beginners ship features without spending their first hour learning Discord plumbing.
+Built for the moment a bot stops being a weekend project and becomes production infrastructure. EasyCord started as a way to eliminate repetitive Discord bot boilerplate, then evolved into a complete orchestration platform for AI-driven agents.
 
 | Task | Raw `discord.py` | This framework |
 | --- | --- | --- |
-| Slash commands | Build a command tree and sync it | `@bot.slash(...)` |
-| Permission checks | Repeat manual checks in each command | Declare permissions on the decorator |
+| Slash commands | Build command tree, sync manually | `@bot.slash(...)` |
+| Permission checks | Repeat in each command | Declare on decorator |
 | Cooldowns | Track timestamps yourself | `cooldown=...` |
-| Components | Handle interactions by hand | `@bot.component(...)` |
-| Shared behavior | Rebuild it per command | Middleware once, applied everywhere |
-| Reusable features | Custom `Cog` wiring | Small `Plugin` classes |
+| Components | Wire interaction handlers by ID | `@bot.component(...)` |
+| Middleware | Write custom decorators | `bot.use(log_middleware())` |
+| Plugins | Custom `Cog` wiring | `Plugin` + lifecycle |
+| AI integration | Build from discord.py + LLM SDK | `Orchestrator` + `ToolRegistry` |
+| Tool calling | Manual prompt engineering | `@ai_tool` + routing |
 
 ## Recommended first project layout
 
@@ -131,15 +246,30 @@ my_bot/
 
 ## Core pieces
 
+**Commands & Interaction:**
 - `Bot` for slash commands, events, components, and plugin loading
-- `Bot.load_builtin_plugins()` for the bundled first-party plugin pack
-- `Bot.db` for automatic guild-scoped storage with SQLite or in-memory backends
-- `Plugin` for reusable feature bundles
-- `Composer` for a fluent setup style
-- `EmbedCard` and the themed embed helpers for embeds with buttons/selects
-- `Context` for the common reply, DM, embed, and moderation actions
-- Middleware for logging, error handling, rate limiting, and guards
+- `@slash`, `@on`, `@component`, `@modal`, `@task` decorators
+- `SlashGroup` for command namespaces
+- `Context` for replies, DMs, embeds, moderation
+- `EmbedCard` and themed embed helpers
+
+**Plugins & Configuration:**
+- `Plugin` for reusable feature bundles with `on_load()` / `on_unload()`
+- `Bot.db` for guild-scoped storage (SQLite or in-memory)
 - `ServerConfigStore` for per-guild settings without a database
+- `Composer` for fluent declarative setup
+
+**Middleware & Utilities:**
+- Middleware for logging, error handling, rate limiting, permission guards
+- Built-in: `guild_only`, `admin_only`, `allowed_roles`, `has_permission`, `boost_only`
+- `LocalizationManager` for multi-language support
+
+**AI & Orchestration:**
+- 9 `AIProvider` implementations (Anthropic, OpenAI, Gemini, Groq, Mistral, HuggingFace, Together, Ollama, LiteLLM)
+- `Orchestrator` for provider routing + tool execution loops
+- `ToolRegistry` for explicit tool registration with permission gates
+- `@ai_tool` decorator for AI-callable functions
+- `FallbackStrategy` for multi-provider resilience
 
 ## Best beginner path
 
