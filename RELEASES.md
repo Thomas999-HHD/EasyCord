@@ -154,9 +154,6 @@ No changes needed. Existing plugins work unchanged. To add AI:
 - Streaming responses (partial output before completion)
 - Tool metrics and observability (execution times, error rates)
 
-### Contributors
-Claude Haiku 4.5 (Anthropic)
-
 ### License
 MIT
 
