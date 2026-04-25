@@ -13,6 +13,7 @@ from ._ai_providers import (
 )
 from .ai_moderator import AIModeratorPlugin
 from .levels import LevelsPlugin
+from .member_logging import MemberLoggingPlugin
 from .moderation import ModerationPlugin
 from .openclaude import AIPlugin, OpenClaudePlugin
 from .polls import PollsPlugin
@@ -30,6 +31,7 @@ __all__ = [
     "HuggingFaceProvider",
     "LevelsPlugin",
     "LiteLLMProvider",
+    "MemberLoggingPlugin",
     "MistralProvider",
     "ModerationPlugin",
     "OllamaProvider",
