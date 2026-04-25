@@ -18,6 +18,9 @@ pytest tests/test_foo.py        # single file
 |------|---------|
 | Add a bot command/plugin | `server_commands/` |
 | Add a bundled framework plugin | `easycord/plugins/` |
+| Moderation (manual or AI) | `easycord/plugins/moderation.py` or `ai_moderator.py` |
+| Reaction roles setup | `easycord/plugins/reaction_roles.py` |
+| Member audit logging | `easycord/plugins/member_logging.py` |
 | Bot core (slash/event/middleware/plugin wiring) | `easycord/bot.py` |
 | Response helpers | `easycord/context.py` (imports from `_context_*.py`) |
 | Built-in middleware | `easycord/middleware.py` |
@@ -46,6 +49,10 @@ easycord/               framework package
     levels.py           LevelsPlugin — XP, leveling, ranks
     polls.py            PollsPlugin
     welcome.py          WelcomePlugin
+    moderation.py       ModerationPlugin — manual moderation (kick, ban, timeout, warn, mute)
+    ai_moderator.py     AIModeratorPlugin — LLM-powered message analysis
+    reaction_roles.py   ReactionRolesPlugin — auto-assign roles via emoji
+    member_logging.py   MemberLoggingPlugin — audit trail for member changes
 server_commands/        example bot plugins (add new bot features here)
 tests/                  pytest suite — mirrors easycord/ structure
 docs/                   user-facing documentation
@@ -60,6 +67,8 @@ model.md                AI context map (architecture + extension guide)
 - **`auto_sync=True` by default** syncs ALL commands globally on startup. Global commands take ~1 h to appear in Discord. Use `guild_id=YOUR_SERVER_ID` on `@bot.slash` during development for instant registration.
 - **ServerConfigStore writes are atomic.** Write-to-temp + rename, protected by per-guild async locks. Don't write config JSON directly.
 - **`server_commands/` vs `easycord/plugins/`.** `server_commands/` = example bot-specific plugins (not part of the installable package). `easycord/plugins/` = bundled, reusable plugins shipped with the framework.
+- **Moderation plugins compose.** Use ModerationPlugin (manual) + AIModeratorPlugin (AI analysis) + ReactionRolesPlugin (role assignment) + MemberLoggingPlugin (audit) independently or together. All use ServerConfigStore for per-guild config.
+- **Rate limiting in plugins.** ToolLimiter and RateLimit classes track per-user/tool execution. Use in plugins to prevent abuse (e.g., max 5 bans/hour, max 10 warns/hour).
 
 ## Token discipline
 
