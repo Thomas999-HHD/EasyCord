@@ -16,6 +16,7 @@ from .levels import LevelsPlugin
 from .moderation import ModerationPlugin
 from .openclaude import AIPlugin, OpenClaudePlugin
 from .polls import PollsPlugin
+from .reaction_roles import ReactionRolesPlugin
 from .tags import TagsPlugin
 from .welcome import WelcomePlugin
 
@@ -35,6 +36,7 @@ __all__ = [
     "OpenAIProvider",
     "OpenClaudePlugin",
     "PollsPlugin",
+    "ReactionRolesPlugin",
     "TagsPlugin",
     "TogetherAIProvider",
     "WelcomePlugin",

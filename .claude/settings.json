@@ -9,7 +9,8 @@
       "Bash(pytest tests/test_tool_limits.py -v)",
       "Bash(python -m pytest tests/test_ai_moderator.py -xvs)",
       "Bash(python -m pytest tests/test_ai_moderator.py::test_default_config -xvs)",
-      "Bash(python -m pytest tests/test_ai_moderator.py -x)"
+      "Bash(python -m pytest tests/test_ai_moderator.py -x)",
+      "Bash(python -m pytest tests/test_reaction_roles_plugin.py -q)"
     ]
   }
 }
