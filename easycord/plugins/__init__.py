@@ -3,8 +3,13 @@ from ._ai_providers import (
     AIProvider,
     AnthropicProvider,
     GeminiProvider,
+    GroqProvider,
+    HuggingFaceProvider,
+    LiteLLMProvider,
+    MistralProvider,
     OllamaProvider,
     OpenAIProvider,
+    TogetherAIProvider,
 )
 from .levels import LevelsPlugin
 from .openclaude import AIPlugin, OpenClaudePlugin
@@ -17,11 +22,16 @@ __all__ = [
     "AIProvider",
     "AnthropicProvider",
     "GeminiProvider",
+    "GroqProvider",
+    "HuggingFaceProvider",
     "LevelsPlugin",
+    "LiteLLMProvider",
+    "MistralProvider",
     "OllamaProvider",
     "OpenAIProvider",
     "OpenClaudePlugin",
     "PollsPlugin",
     "TagsPlugin",
+    "TogetherAIProvider",
     "WelcomePlugin",
 ]

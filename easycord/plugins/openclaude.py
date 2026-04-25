@@ -60,7 +60,7 @@ class AIPlugin(Plugin):
         await ctx.defer()
 
         try:
-            response_text = self._provider.query(prompt)
+            response_text = await self._provider.query(prompt)
             await ctx.respond(self._format_response(response_text))
 
         except ImportError as exc:

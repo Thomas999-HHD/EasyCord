@@ -3,7 +3,9 @@
     "allow": [
       "Bash(python -m pyflakes easycord/plugins/reaction_roles.py)",
       "Bash(python -m pyflakes tests/test_reaction_roles_plugin.py)",
-      "Bash(pytest --tb=short)"
+      "Bash(pytest --tb=short)",
+      "Bash(python -m pytest tests/test_openclaude_plugin.py::test_anthropic_query_returns_text -xvs)",
+      "Bash(python -m pytest tests/test_openclaude_plugin.py -q)"
     ]
   }
 }

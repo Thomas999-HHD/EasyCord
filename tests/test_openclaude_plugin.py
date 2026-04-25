@@ -6,8 +6,13 @@ from easycord.plugins._ai_providers import (
     AIProvider,
     AnthropicProvider,
     GeminiProvider,
+    GroqProvider,
+    HuggingFaceProvider,
+    LiteLLMProvider,
+    MistralProvider,
     OllamaProvider,
     OpenAIProvider,
+    TogetherAIProvider,
 )
 from easycord.plugins.openclaude import AIPlugin, OpenClaudePlugin
 
@@ -61,7 +66,8 @@ def test_anthropic_missing_sdk():
             provider._init_client()
 
 
-def test_anthropic_query_returns_text():
+@pytest.mark.asyncio
+async def test_anthropic_query_returns_text():
     """AnthropicProvider.query returns response text."""
     provider = AnthropicProvider(api_key="test")
     with patch.object(provider, "_init_client"):
@@ -69,7 +75,7 @@ def test_anthropic_query_returns_text():
         mock_response.content = [MagicMock(text="Claude response")]
         provider._client = MagicMock()
         provider._client.messages.create.return_value = mock_response
-        assert provider.query("hello") == "Claude response"
+        assert await provider.query("hello") == "Claude response"
 
 
 # ============================================================================
@@ -110,7 +116,8 @@ def test_openai_missing_sdk():
             provider._init_client()
 
 
-def test_openai_query_returns_text():
+@pytest.mark.asyncio
+async def test_openai_query_returns_text():
     """OpenAIProvider.query returns response text."""
     provider = OpenAIProvider(api_key="test")
     with patch.object(provider, "_init_client"):
@@ -120,7 +127,7 @@ def test_openai_query_returns_text():
         mock_response.choices = [mock_choice]
         provider._client = MagicMock()
         provider._client.chat.completions.create.return_value = mock_response
-        assert provider.query("hello") == "GPT response"
+        assert await provider.query("hello") == "GPT response"
 
 
 # ============================================================================
@@ -161,7 +168,8 @@ def test_gemini_missing_sdk():
             provider._init_client()
 
 
-def test_gemini_query_returns_text():
+@pytest.mark.asyncio
+async def test_gemini_query_returns_text():
     """GeminiProvider.query returns response text."""
     provider = GeminiProvider(api_key="test")
     with patch.object(provider, "_init_client"):
@@ -169,7 +177,7 @@ def test_gemini_query_returns_text():
         mock_response.text = "Gemini response"
         provider._client = MagicMock()
         provider._client.generate_content.return_value = mock_response
-        assert provider.query("hello") == "Gemini response"
+        assert await provider.query("hello") == "Gemini response"
 
 
 # ============================================================================
@@ -197,18 +205,166 @@ def test_ollama_missing_sdk():
             provider._init_client()
 
 
-def test_ollama_query_returns_text():
+@pytest.mark.asyncio
+async def test_ollama_query_returns_text():
     """OllamaProvider.query returns response text."""
     provider = OllamaProvider()
     with patch.object(provider, "_init_client"):
         mock_ollama = MagicMock()
         mock_ollama.chat.return_value = {"message": {"content": "Ollama response"}}
         provider._client = mock_ollama
-        assert provider.query("hello") == "Ollama response"
+        assert await provider.query("hello") == "Ollama response"
 
 
 # ============================================================================
-# Section 6 — AIPlugin unit tests
+# Section 6 — MistralProvider unit tests
+# ============================================================================
+
+
+def test_mistral_requires_api_key():
+    """MistralProvider requires MISTRAL_API_KEY."""
+    with pytest.raises(ValueError, match="MISTRAL_API_KEY"):
+        MistralProvider(api_key=None)
+
+
+def test_mistral_accepts_explicit_key():
+    """MistralProvider accepts explicit api_key."""
+    provider = MistralProvider(api_key="test-key")
+    assert provider._api_key == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_mistral_query_returns_text():
+    """MistralProvider.query returns response text."""
+    provider = MistralProvider(api_key="test")
+    with patch.object(provider, "_init_client"):
+        mock_message = MagicMock()
+        mock_choice = MagicMock()
+        mock_choice.message.content = "Mistral response"
+        mock_message.choices = [mock_choice]
+        provider._client = MagicMock()
+        provider._client.chat.return_value = mock_message
+        assert await provider.query("hello") == "Mistral response"
+
+
+# ============================================================================
+# Section 7 — GroqProvider unit tests
+# ============================================================================
+
+
+def test_groq_requires_api_key():
+    """GroqProvider requires GROQ_API_KEY."""
+    with pytest.raises(ValueError, match="GROQ_API_KEY"):
+        GroqProvider(api_key=None)
+
+
+def test_groq_accepts_explicit_key():
+    """GroqProvider accepts explicit api_key."""
+    provider = GroqProvider(api_key="test-key")
+    assert provider._api_key == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_groq_query_returns_text():
+    """GroqProvider.query returns response text."""
+    provider = GroqProvider(api_key="test")
+    with patch.object(provider, "_init_client"):
+        mock_choice = MagicMock()
+        mock_choice.message.content = "Groq response"
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        provider._client = MagicMock()
+        provider._client.chat.completions.create.return_value = mock_response
+        assert await provider.query("hello") == "Groq response"
+
+
+# ============================================================================
+# Section 8 — HuggingFaceProvider unit tests
+# ============================================================================
+
+
+def test_huggingface_requires_api_key():
+    """HuggingFaceProvider requires HF_API_KEY."""
+    with pytest.raises(ValueError, match="HF_API_KEY"):
+        HuggingFaceProvider(api_key=None)
+
+
+def test_huggingface_accepts_explicit_key():
+    """HuggingFaceProvider accepts explicit api_key."""
+    provider = HuggingFaceProvider(api_key="test-key")
+    assert provider._api_key == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_huggingface_query_returns_text():
+    """HuggingFaceProvider.query returns response text."""
+    provider = HuggingFaceProvider(api_key="test")
+    with patch.object(provider, "_init_client"):
+        provider._client = MagicMock()
+        provider._client.text_generation.return_value = "HF response"
+        assert await provider.query("hello") == "HF response"
+
+
+# ============================================================================
+# Section 9 — TogetherAIProvider unit tests
+# ============================================================================
+
+
+def test_together_requires_api_key():
+    """TogetherAIProvider requires TOGETHER_API_KEY."""
+    with pytest.raises(ValueError, match="TOGETHER_API_KEY"):
+        TogetherAIProvider(api_key=None)
+
+
+def test_together_accepts_explicit_key():
+    """TogetherAIProvider accepts explicit api_key."""
+    provider = TogetherAIProvider(api_key="test-key")
+    assert provider._api_key == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_together_query_returns_text():
+    """TogetherAIProvider.query returns response text."""
+    provider = TogetherAIProvider(api_key="test")
+    with patch.object(provider, "_init_client"):
+        provider._client = MagicMock()
+        provider._client.Complete.create.return_value = {
+            "output": {"choices": [{"text": "Together response"}]}
+        }
+        assert await provider.query("hello") == "Together response"
+
+
+# ============================================================================
+# Section 10 — LiteLLMProvider unit tests
+# ============================================================================
+
+
+def test_litellm_requires_api_key():
+    """LiteLLMProvider requires LITELLM_API_KEY."""
+    with pytest.raises(ValueError, match="LITELLM_API_KEY"):
+        LiteLLMProvider(api_key=None)
+
+
+def test_litellm_accepts_explicit_key():
+    """LiteLLMProvider accepts explicit api_key."""
+    provider = LiteLLMProvider(api_key="test-key")
+    assert provider._api_key == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_litellm_query_returns_text():
+    """LiteLLMProvider.query returns response text."""
+    provider = LiteLLMProvider(api_key="test")
+    with patch.object(provider, "_init_client"):
+        provider._client = MagicMock()
+        provider._client.return_value = {
+            "choices": [{"message": {"content": "LiteLLM response"}}]
+        }
+        assert await provider.query("hello") == "LiteLLM response"
+
+
+# ============================================================================
+# Section 11 — AIPlugin unit tests
 # ============================================================================
 
 
@@ -216,7 +372,7 @@ def test_ollama_query_returns_text():
 async def test_aiplugin_ask_calls_provider_and_responds():
     """AIPlugin.ask calls provider and responds with result."""
     provider = MagicMock(spec=AIProvider)
-    provider.query.return_value = "AI response"
+    provider.query = AsyncMock(return_value="AI response")
     plugin = AIPlugin(provider=provider)
     ctx = MagicMock()
     ctx.defer = AsyncMock()
@@ -232,7 +388,7 @@ async def test_aiplugin_ask_calls_provider_and_responds():
 async def test_aiplugin_truncates_long_response():
     """AIPlugin.ask truncates responses over 2000 chars."""
     provider = MagicMock(spec=AIProvider)
-    provider.query.return_value = "x" * 3000
+    provider.query = AsyncMock(return_value="x" * 3000)
     plugin = AIPlugin(provider=provider)
     ctx = MagicMock()
     ctx.defer = AsyncMock()
@@ -249,7 +405,7 @@ async def test_aiplugin_truncates_long_response():
 async def test_aiplugin_handles_import_error():
     """AIPlugin.ask handles ImportError from provider."""
     provider = MagicMock(spec=AIProvider)
-    provider.query.side_effect = ImportError("sdk missing")
+    provider.query = AsyncMock(side_effect=ImportError("sdk missing"))
     plugin = AIPlugin(provider=provider)
     ctx = MagicMock()
     ctx.defer = AsyncMock()
@@ -266,7 +422,7 @@ async def test_aiplugin_handles_import_error():
 async def test_aiplugin_handles_api_error():
     """AIPlugin.ask handles generic API errors."""
     provider = MagicMock(spec=AIProvider)
-    provider.query.side_effect = Exception("rate limit exceeded")
+    provider.query = AsyncMock(side_effect=Exception("rate limit exceeded"))
     plugin = AIPlugin(provider=provider)
     ctx = MagicMock()
     ctx.defer = AsyncMock()
@@ -280,7 +436,7 @@ async def test_aiplugin_handles_api_error():
 
 
 # ============================================================================
-# Section 7 — OpenClaudePlugin backwards-compat tests
+# Section 12 — OpenClaudePlugin backwards-compat tests
 # ============================================================================
 
 
@@ -317,7 +473,7 @@ async def test_openclaude_ask_defers_and_responds():
     ctx.defer = AsyncMock()
     ctx.respond = AsyncMock()
 
-    with patch.object(plugin._provider, "query", return_value="Test response"):
+    with patch.object(plugin._provider, "query", new_callable=AsyncMock, return_value="Test response"):
         await plugin.ask(ctx, prompt="Test prompt")
 
     ctx.defer.assert_called_once()

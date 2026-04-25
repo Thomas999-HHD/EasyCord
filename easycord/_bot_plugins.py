@@ -81,6 +81,14 @@ class _PluginsMixin:
                 if getattr(method, "_modal_scoped", True):
                     custom_id = plugin.id(custom_id)
                 self._register_modal_handler(custom_id, method, source_plugin=type(plugin).__name__)
+            if getattr(method, "_is_ai_tool", False):
+                tool_name = method._ai_tool_name
+                self.ai_tools[tool_name] = {
+                    "name": tool_name,
+                    "description": method._ai_tool_description,
+                    "func": method,
+                    "parameters": method._ai_tool_parameters,
+                }
 
     # ── Plugins ───────────────────────────────────────────────
 

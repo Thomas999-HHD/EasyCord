@@ -77,6 +77,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._task_handles: dict[int, list[asyncio.Task]] = {}
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
+        self.ai_tools: dict[str, dict] = {}
         self._error_handler = None
         self.db = database or self._create_database(
             db_backend=db_backend,

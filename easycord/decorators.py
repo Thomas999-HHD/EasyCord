@@ -186,3 +186,53 @@ def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
         return _apply(func, id_or_func)
 
     return decorator
+
+
+def ai_tool(
+    description: str = "No description provided.",
+    parameters: dict | None = None,
+) -> Callable:
+    """Mark a Plugin method as an AI-callable function tool.
+
+    The method will be registered as an available function that the AI can invoke
+    during conversation. The method receives the command context and can return
+    a string response that the AI includes in its next message.
+
+    Parameters
+    ----------
+    description:
+        Description of what this tool does, shown to the AI.
+    parameters:
+        JSON schema describing the tool's parameters (if any).
+
+    Example::
+
+        class MyPlugin(Plugin):
+
+            @ai_tool(description="Get the current member count")
+            async def get_member_count(self, ctx):
+                return f"Guild has {len(ctx.guild.members)} members"
+
+            @ai_tool(
+                description="Search for a member by name",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Member name to search"}
+                    },
+                    "required": ["name"]
+                }
+            )
+            async def find_member(self, ctx, name: str):
+                matches = [m for m in ctx.guild.members if name.lower() in m.name.lower()]
+                return f"Found {len(matches)} members matching '{name}'"
+    """
+
+    def decorator(func: Callable) -> Callable:
+        func._is_ai_tool = True
+        func._ai_tool_name = func.__name__
+        func._ai_tool_description = description
+        func._ai_tool_parameters = parameters or {}
+        return func
+
+    return decorator
