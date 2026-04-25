@@ -284,6 +284,59 @@ pytest tests/test_member_logging_plugin.py -v
 pytest
 ```
 
+## v3.7.0 Features (New)
+
+### Helper Libraries
+
+Five production-ready helper classes simplify common operations:
+
+```python
+from easycord.helpers import (
+    EmbedBuilder,           # Quick embeds with .success(), .error(), .info(), .warning() presets
+    ContextHelpers,         # Respond helpers, member listing, bulk operations, pagination
+    ConfigHelpers,          # ServerConfigStore shortcuts (load_or_default, update_atomic, load_all_guilds)
+    ToolHelpers,            # Tool registry utilities (register_batch, check_permission, list_all_tools)
+    RateLimitHelpers,       # Rate limit management (create_limit, check, reset_user/tool, get_stats)
+)
+```
+
+### Decorator Enhancements
+
+**@slash** now supports `rate_limit` parameter:
+```python
+@slash(description="Ban user", rate_limit=(3, 60))  # Max 3 calls per hour
+async def ban(self, ctx, user: discord.User):
+    ...
+```
+
+**@on** now supports `on_cleanup` callback for plugin cleanup:
+```python
+@on("ready", on_cleanup=self.cleanup_resources)
+async def on_ready(self):
+    ...
+```
+
+**@ai_tool** now supports `permissions` parameter:
+```python
+@ai_tool(description="Ban user", permissions=["ban_members"])
+async def ban_user(self, ctx, user_id: int):
+    ...
+```
+
+### Plugin Lifecycle
+
+All plugins now support:
+- `on_load()` — Called once when plugin is added (if bot already ready) or when bot starts
+- `on_ready()` — Called every time bot becomes ready (including after reconnects)
+- `on_unload()` — Called when plugin is removed
+
+### Chainable Plugin Registration
+
+`bot.add_plugin()` now returns the bot for fluent chaining:
+```python
+bot.add_plugin(ModPlugin()).add_plugin(RolePlugin()).add_plugin(LogPlugin())
+```
+
 ## Token discipline
 
 - Check `model.md` for architecture before reading source files.
