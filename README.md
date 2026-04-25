@@ -1,10 +1,10 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-3.7.1-blue)
+![Version](https://img.shields.io/badge/v-3.8.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-578%20passing-brightgreen)
 
-> A unified Discord bot framework. Commands, events, moderation, leveling, configuration, middleware, and AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add plugins for features (moderation, roles, logging, leveling). Scale to intelligent AI agents with multi-provider LLM support and permission-gated tool calling.
+> A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
 ## Start here
 
@@ -18,14 +18,16 @@ from easycord import Bot
 bot = Bot()
 bot.load_builtin_plugins()
 
-@bot.slash()
+@bot.slash(description="Ping the bot")
 async def ping(ctx):
     await ctx.respond("Pong!")
 
 bot.run("YOUR_TOKEN")
 ```
 
-If you want the shortest possible path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
+**Want to see a production bot without AI?** Open [`examples/core-bot.py`](examples/core-bot.py).
+
+For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
 ## Installation
 
@@ -83,9 +85,11 @@ bot = Bot(localization=locales, default_locale="en")
 
 Translations fallback gracefully: user locale → guild locale → default locale → English. See [`docs/localization.md`](docs/localization.md) for the full guide.
 
-## AI Integration (OpenClaude)
+## Optional: AI Integration
 
-Ask Claude directly from Discord:
+EasyCord core works great without AI. If you want intelligent agents, add them optionally.
+
+### Simple AI assistant (ask Claude)
 
 ```python
 from easycord import Bot
@@ -103,7 +107,7 @@ Members use `/ask "your question"` to query Claude API. Responses are automatica
 
 See [`docs/examples.md`](docs/examples.md) for examples with OpenAI, Gemini, Groq, Ollama, and custom providers.
 
-## AI Tool Registration (function calling)
+### Advanced: AI Tool Registration (function calling)
 
 Let AI safely call into your bot via `@ai_tool` decorator:
 
@@ -229,7 +233,22 @@ The orchestrator:
 
 ## Why this exists
 
-Built for the moment a bot stops being a weekend project and becomes production infrastructure. EasyCord started as a way to eliminate repetitive Discord bot boilerplate, then evolved into a complete orchestration platform for AI-driven agents.
+Built for the moment a bot stops being a weekend project and becomes production infrastructure.
+
+EasyCord started as a way to eliminate repetitive Discord bot boilerplate. It evolved into something deeper: **a framework that removes architectural decisions you'd otherwise have to make**.
+
+With discord.py, you decide:
+- How to structure commands (app_commands, prefixed, cogs?)
+- How to handle permissions (decorators, checks, middleware?)
+- How to rate limit (custom tracking, cooldowns, both?)
+- How to organize features (cogs, blueprints, file layout?)
+- How to configure per-guild (JSON files, database, cache?)
+
+With EasyCord, those are answered. One way. Designed for production.
+
+**AI is optional.** You can build fully-featured bots with zero AI dependencies. If you want intelligent agents, the framework has you covered—but you don't need it.
+
+That's worth more than "less code"—it's fewer design questions.
 
 | Task | Raw `discord.py` | This framework |
 | --- | --- | --- |
@@ -293,12 +312,21 @@ my_bot/
 
 ## Examples and docs
 
+- [`examples/core-bot.py`](examples/core-bot.py): production bot with zero AI dependencies (commands, events, logging, permissions)
 - [`examples/basic_bot.py`](examples/basic_bot.py): the smallest practical starter bot
 - [`examples/plugin_bot.py`](examples/plugin_bot.py): a feature split across plugins
 - [`examples/group_bot.py`](examples/group_bot.py): grouped slash commands with `SlashGroup`
 - [`docs/index.md`](docs/index.md): documentation home
+- [`docs/getting-started.md`](docs/getting-started.md): 5-minute walkthrough to a working bot
+- [`docs/quickstart-production.md`](docs/quickstart-production.md): complete bot from scratch showing plugins, events, AI, error handling (canonical pattern)
+- [`docs/api.md`](docs/api.md): complete API reference with examples
 - [`docs/examples.md`](docs/examples.md): patterns and snippets
 - [`docs/fork-and-expand.md`](docs/fork-and-expand.md): how to grow a real bot project
+- [`docs/migration-from-discord.py.md`](docs/migration-from-discord.py.md): side-by-side comparison, "delete after migrating" checklist
+- [`docs/security-best-practices.md`](docs/security-best-practices.md): token management, permissions, AI safety pipeline, prompt injection prevention
+- [`docs/performance-tuning.md`](docs/performance-tuning.md): optimize latency, memory, throughput
+- [`docs/troubleshooting.md`](docs/troubleshooting.md): common issues and solutions
+- [`docs/stability-and-scope.md`](docs/stability-and-scope.md): API stability guarantees, intentional gaps, extension surface, upgrade safety
 - [`server_commands/__init__.py`](server_commands/__init__.py): one place to load the bundled plugins
 
 ## Project backstory

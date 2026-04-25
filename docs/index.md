@@ -14,6 +14,18 @@ The documentation is organized around one beginner-friendly path: install the pa
 6. [`api.md`](api.md) — reference signatures when you already know what you want to build.
 7. [`release-notes.md`](release-notes.md) — summary of the latest refactor and feature update.
 
+## Guides & References
+
+**The canonical pattern:**
+- [`quickstart-production.md`](quickstart-production.md) — build a complete production-ready bot end-to-end (150 lines, plugins + AI + error handling). Shows the intended EasyCord way.
+
+**For specific tasks:**
+- [`migration-from-discord.py.md`](migration-from-discord.py.md) — moving an existing discord.py bot to EasyCord (side-by-side comparison, "what you can delete" checklist).
+- [`security-best-practices.md`](security-best-practices.md) — token management, permissions, input validation, AI tool safety (with safety pipeline model), and production deployment.
+- [`performance-tuning.md`](performance-tuning.md) — optimize command latency, memory usage, database queries, and concurrent throughput.
+- [`troubleshooting.md`](troubleshooting.md) — common issues (bot won't start, commands don't appear, permissions fail) and solutions.
+- [`stability-and-scope.md`](stability-and-scope.md) — what's frozen (won't break in v3.x), what's intentional gaps, extension surface, upgrade safety.
+
 ## What this removes
 
 | Beginner pain | This framework answer |
@@ -23,10 +35,12 @@ The documentation is organized around one beginner-friendly path: install the pa
 | Repeating rate-limit and logging setup | Middleware once for the whole bot |
 | Wiring buttons and selects by hand | `@bot.component(...)` |
 | Growing from one file into a larger bot | Plugins and a simple folder layout |
-| Building moderation from scratch | `ModerationPlugin` + `AIModeratorPlugin` |
+| Building moderation from scratch | `ModerationPlugin` (rule-based) + `AIModeratorPlugin` (optional) |
 | Managing per-guild config without a database | `ServerConfigStore` or `PluginConfigManager` |
 | Handling member events, logging, welcome messages | `MemberLoggingPlugin`, `WelcomePlugin`, etc. |
-| Scaling to AI agents with safe tool calling | `Orchestrator`, `@ai_tool`, tool registry |
+| Scaling to AI agents (optional) | `Orchestrator`, `@ai_tool`, tool registry (not required) |
+
+**Note:** AI features are completely optional. You can build fully-featured bots without any AI dependencies. See [`examples/core-bot.py`](../examples/core-bot.py) and [`docs/security-best-practices.md#when-not-to-use-ai-integration`](security-best-practices.md#when-not-to-use-ai-integration) for when to skip AI.
 
 ## Suggested learning order
 

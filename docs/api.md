@@ -474,3 +474,376 @@ Per-guild text snippet store. All commands require a guild context.
 | `/tag list` | — | List all tag names in this server |
 
 Storage: `tags_<guild_id>.json` in `data_dir`.
+
+---
+
+## Helper Libraries (`easycord.helpers`)
+
+Production-ready utilities for common bot operations. Import directly:
+
+```python
+from easycord import EmbedBuilder, ContextHelpers, ConfigHelpers, ToolHelpers, RateLimitHelpers
+```
+
+### `EmbedBuilder`
+
+Fluent embed constructor with presets:
+
+```python
+from easycord import EmbedBuilder
+
+# Basic embed
+embed = (
+    EmbedBuilder()
+    .title("User Info")
+    .description("Details about the member")
+    .field("Status", "Active")
+    .color(0x00ff00)
+    .build()
+)
+
+# Preset embeds
+success = EmbedBuilder().success("Operation completed")
+error = EmbedBuilder().error("Something went wrong")
+info = EmbedBuilder().info("FYI: Important notice")
+warning = EmbedBuilder().warning("Be careful")
+```
+
+Methods: `.title()` `.description()` `.field(name, value, inline=True)` `.footer()` `.color()` `.timestamp()` `.author()` `.thumbnail()` `.image()` `.build()`
+
+### `ContextHelpers`
+
+Shortcuts for common context operations:
+
+```python
+from easycord import ContextHelpers
+
+# Respond + return all members in guild
+members = await ContextHelpers.list_all_members(ctx)
+
+# Respond + confirm before action
+confirmed = await ContextHelpers.confirm_action(ctx, "Ban this user?")
+
+# Respond + paginate results
+await ContextHelpers.paginate_results(ctx, items, page_size=10)
+
+# Respond + pick from list
+choice = await ContextHelpers.pick_from_list(ctx, options)
+```
+
+### `ConfigHelpers`
+
+Shortcuts for per-guild configuration:
+
+```python
+from easycord import ConfigHelpers
+
+# Load config or defaults
+config = await ConfigHelpers.load_or_default(store, guild_id, key, defaults={...})
+
+# Atomically update
+await ConfigHelpers.update_atomic(store, guild_id, key, field=value)
+
+# Load all guild configs
+all_configs = await ConfigHelpers.load_all_guilds(store)
+
+# Delete config
+await ConfigHelpers.delete_config(store, guild_id)
+```
+
+### `ToolHelpers`
+
+Manage AI tool registration:
+
+```python
+from easycord import ToolHelpers, ToolSafety
+
+# Register batch of tools
+tools = [
+    ("is_member", "Check if user is in server", ToolSafety.SAFE),
+    ("timeout_user", "Timeout a user", ToolSafety.CONTROLLED),
+]
+ToolHelpers.register_batch(bot.tool_registry, tools)
+
+# Check if tool callable
+allowed = await ToolHelpers.check_permission(ctx, "timeout_user")
+
+# List all registered tools
+all_tools = ToolHelpers.list_all_tools(bot.tool_registry)
+```
+
+### `RateLimitHelpers`
+
+Manage rate limits on tools/users:
+
+```python
+from easycord import RateLimitHelpers
+
+# Create new limit: 3 uses per hour
+limit = RateLimitHelpers.create_limit("ban", 3, 3600)
+
+# Check if user hit limit
+blocked = await RateLimitHelpers.check(limit, user_id)
+
+# Reset user from limit
+await RateLimitHelpers.reset_user(limit, user_id)
+
+# Get limit stats
+stats = await RateLimitHelpers.get_stats(limit)
+```
+
+---
+
+## Scheduled Events (Context methods)
+
+Create and manage Discord scheduled events:
+
+`await ctx.create_event(name, start_time, *, end_time=None, description=None, channel=None, location=None, image=None)` → `discord.ScheduledEvent`
+
+- `channel`: for voice/stage events
+- `location`: string for external events (requires `end_time`)
+- `image`: bytes for event cover image
+- Entity type inferred automatically; raises `RuntimeError` if ambiguous
+
+`await ctx.get_events()` → `list[discord.ScheduledEvent]` — all upcoming events in guild
+
+`await ctx.delete_event(event_or_id)` — cancel event by object or ID
+
+### Event Lifecycle Events
+
+Listen for scheduled event changes via `@bot.on()`:
+
+```python
+@bot.on("scheduled_event_create")
+async def on_event_created(event: discord.ScheduledEvent):
+    print(f"Event created: {event.name}")
+
+@bot.on("scheduled_event_update")
+async def on_event_updated(before: discord.ScheduledEvent, after: discord.ScheduledEvent):
+    print(f"Event updated: {before.name} → {after.name}")
+
+@bot.on("scheduled_event_delete")
+async def on_event_deleted(event: discord.ScheduledEvent):
+    print(f"Event deleted: {event.name}")
+
+@bot.on("scheduled_event_user_add")
+async def on_rsvp(event: discord.ScheduledEvent, user: discord.User):
+    print(f"{user.name} RSVPd to {event.name}")
+```
+
+---
+
+## Invite Management (Context methods)
+
+Create and manage server invites:
+
+`await ctx.create_invite(*, max_uses=0, max_age=0, temporary=False, unique=True, reason=None)` → `discord.Invite`
+
+- `max_uses=0`: unlimited uses
+- `max_age=0`: never expires
+- `temporary=False`: invites do NOT expire after user joins
+- `unique=True`: create new invite each call (set `False` to reuse)
+
+`await ctx.get_invites()` → `list[discord.Invite]` — all invites for current channel
+
+`await ctx.revoke_invite(code)` — delete invite by code
+
+---
+
+## AI & Orchestration
+
+### `Orchestrator`
+
+Multi-provider LLM routing with tool calling:
+
+```python
+from easycord import Orchestrator, FallbackStrategy, RunContext
+from easycord.plugins import AnthropicProvider, GroqProvider
+
+# Create with fallback chain
+orchestrator = Orchestrator(
+    strategy=FallbackStrategy([
+        AnthropicProvider(),  # Try Claude first
+        GroqProvider(),       # Fallback to Groq
+    ]),
+    tools=bot.tool_registry,
+)
+
+# Run with tool calling
+context = RunContext(
+    messages=[{"role": "user", "content": "Check if user 123 is in server"}],
+    ctx=ctx,
+    max_steps=5,  # Max tool calls before returning
+    timeout=30.0,
+)
+result = await orchestrator.run(context)
+```
+
+### `RunContext`
+
+`RunContext(*, messages, ctx, max_steps=5, timeout=30.0, system_prompt=None)`
+
+- `messages`: conversation history `[{"role": "user/assistant", "content": ...}]`
+- `ctx`: Discord context (for tool execution)
+- `max_steps`: max iterations before giving final answer
+- `timeout`: seconds per tool call
+- `system_prompt`: override default system instructions
+
+### `ToolRegistry` / `@ai_tool`
+
+```python
+from easycord import Plugin, ai_tool, ToolSafety
+
+class MyPlugin(Plugin):
+    @ai_tool(
+        description="Check if user is in server",
+        safety=ToolSafety.SAFE,
+        permissions=["view_members"],
+    )
+    async def is_member(self, ctx, user_id: int) -> str:
+        try:
+            await ctx.guild.fetch_member(user_id)
+            return "User is a member"
+        except:
+            return "User is not a member"
+
+    @ai_tool(
+        description="Timeout user",
+        safety=ToolSafety.CONTROLLED,
+        require_admin=True,
+    )
+    async def timeout_user(self, ctx, user_id: int, seconds: int = 3600) -> str:
+        member = await ctx.guild.fetch_member(user_id)
+        await member.timeout(timedelta(seconds=seconds))
+        return f"Timed out {member.name}"
+```
+
+Safety levels:
+- **SAFE** — read-only (queries, lookups, info)
+- **CONTROLLED** — validated actions (moderation, writes, role changes)
+- **RESTRICTED** — never expose to AI (admin-only, destructive)
+
+---
+
+## Conversation Memory
+
+Maintain multi-turn context across commands:
+
+```python
+from easycord import ConversationMemory, Conversation
+
+memory = ConversationMemory(max_conversations=100)
+
+# Add to conversation
+conv = memory.get_or_create("user_123")
+conv.add_turn("user", "What's my level?")
+conv.add_turn("assistant", "You're level 5")
+
+# Retrieve history
+history = conv.get_history(limit=10)  # Last 10 turns
+
+# Clear conversation
+conv.clear()
+```
+
+`Conversation` methods:
+- `.add_turn(role, content)` — add message
+- `.get_history(limit=None)` → `list[ConversationTurn]` — recent messages
+- `.clear()` — reset conversation
+- `.to_messages()` → list for LLM (role/content format)
+
+---
+
+## Decorators (Advanced)
+
+### `@component`
+
+Handle button/select interactions:
+
+```python
+@bot.component("approve")
+async def on_approve(ctx):
+    await ctx.respond("Approved!", ephemeral=True)
+
+@bot.component("vote_")  # Prefix match
+async def on_vote(ctx, option):
+    await ctx.respond(f"Voted for {option}")
+```
+
+Middleware runs on components the same as slash commands.
+
+### `@modal`
+
+Handle modal form submissions:
+
+```python
+@bot.modal("feedback_form")
+async def on_feedback(ctx, form_data: dict[str, str]):
+    feedback = form_data.get("message", "")
+    await ctx.respond(f"Feedback received: {feedback}")
+```
+
+### `@task`
+
+Background repeating task:
+
+```python
+@task(hours=1)
+async def periodic_cleanup(self):
+    # Runs every hour, auto-starts on plugin load, stops on unload
+    await self.cleanup_old_data()
+```
+
+Valid parameters: `seconds`, `minutes`, `hours`, `days`.
+
+### `@on` (Event handlers)
+
+```python
+@on("member_join")
+async def welcome(self, member):
+    await member.send(f"Welcome {member.name}!")
+
+@on("message")
+async def log_message(self, message):
+    if not message.author.bot:
+        print(f"{message.author}: {message.content}")
+```
+
+Common events: `member_join`, `member_remove`, `message`, `message_edit`, `reaction_add`, `ready`, `guild_join`, `guild_remove`.
+
+---
+
+## Composer (Fluent Builder)
+
+Build a bot declaratively:
+
+```python
+from easycord import Composer
+
+bot = (
+    Composer()
+    .intents("default")
+    .with_members()
+    .with_messages()
+    .auto_sync(True)
+    .log(level="INFO")
+    .catch_errors("An error occurred")
+    .add_plugin(ModerationPlugin())
+    .add_plugin(LevelsPlugin())
+    .add_group(MySlashGroup())
+    .build()
+)
+```
+
+Available shortcuts:
+- `.intents(intents)` — set gateway intents
+- `.with_members()` / `.with_messages()` / `.with_invites()` — enable privileged intents
+- `.auto_sync(enabled)` — command sync at startup
+- `.log(level, fmt)` — add logging middleware
+- `.catch_errors(message)` — add error handler
+- `.rate_limit(limit, window)` — add rate limiting
+- `.guild_only()` — add guild-only guard
+- `.use(middleware)` — add custom middleware
+- `.add_plugin(plugin)` / `.add_plugins(*plugins)` — queue plugins
+- `.add_group(group)` / `.add_groups(*groups)` — queue groups
+- `.build()` — return configured Bot
