@@ -2,7 +2,7 @@
 ![Version](https://img.shields.io/badge/v-3.2.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-484%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-517%20passing-brightgreen)
 
 > This framework helps beginners build Discord bots faster by removing boilerplate around slash commands, components, plugins, and moderation helpers.
 
