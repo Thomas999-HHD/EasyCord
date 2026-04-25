@@ -1,16 +1,91 @@
-"""OpenClaude integration for AI-powered responses via Claude."""
+"""AI assistant plugins using various LLM provider APIs."""
 from __future__ import annotations
 
-import os
-from typing import Optional
-
-import discord
+from typing import TYPE_CHECKING, Optional
 
 from easycord import Plugin, slash
 
+if TYPE_CHECKING:
+    from ._ai_providers import AIProvider
 
-class OpenClaudePlugin(Plugin):
-    """AI assistant plugin using Claude API for intelligent responses.
+
+class AIPlugin(Plugin):
+    """General-purpose AI assistant for any LLM provider.
+
+    Members can ask questions via `/ask` and receive AI-generated responses.
+    Supports Anthropic Claude, OpenAI GPT, Google Gemini, Ollama, and others.
+
+    Quick start::
+
+        from easycord.plugins.openclaude import AIPlugin
+        from easycord.plugins._ai_providers import AnthropicProvider
+
+        provider = AnthropicProvider(api_key="sk-ant-...")
+        bot.add_plugin(AIPlugin(provider=provider))
+
+    Slash commands registered
+    -------------------------
+    ``/ask`` — Ask the AI a question and get a response.
+    """
+
+    def __init__(self, provider: AIProvider) -> None:
+        """Initialize AI plugin.
+
+        Parameters
+        ----------
+        provider : AIProvider
+            An AI provider instance (AnthropicProvider, OpenAIProvider, etc.).
+        """
+        super().__init__()
+        self._provider = provider
+
+    @staticmethod
+    def _format_response(text: str) -> str:
+        """Truncate response to Discord's 2000 char limit."""
+        if len(text) > 2000:
+            return text[:1997] + "..."
+        return text
+
+    @slash(description="Ask an AI a question and get a response.", guild_only=True)
+    async def ask(self, ctx, prompt: str) -> None:
+        """Ask AI a question.
+
+        Parameters
+        ----------
+        ctx : Context
+            Command context.
+        prompt : str
+            Question or prompt for the AI.
+        """
+        await ctx.defer()
+
+        try:
+            response_text = self._provider.query(prompt)
+            await ctx.respond(self._format_response(response_text))
+
+        except ImportError as exc:
+            await ctx.respond(
+                ctx.t(
+                    "ai.sdk_not_installed",
+                    default=str(exc),
+                ),
+                ephemeral=True,
+            )
+        except Exception as exc:
+            await ctx.respond(
+                ctx.t(
+                    "ai.error",
+                    default="Error calling AI: {error}",
+                    error=str(exc),
+                ),
+                ephemeral=True,
+            )
+
+
+class OpenClaudePlugin(AIPlugin):
+    """Backwards-compatible wrapper for Anthropic Claude.
+
+    Maintains the original OpenClaudePlugin interface while delegating to AIPlugin.
 
     Members can ask questions via `/ask` and receive Claude-generated responses.
     Requires ANTHROPIC_API_KEY environment variable or explicit API key.
@@ -25,7 +100,11 @@ class OpenClaudePlugin(Plugin):
     ``/ask`` — Ask Claude a question and get an AI-powered response.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-5-sonnet-20241022") -> None:
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "claude-3-5-sonnet-20241022",
+    ) -> None:
         """Initialize OpenClaude plugin.
 
         Parameters
@@ -35,73 +114,7 @@ class OpenClaudePlugin(Plugin):
         model : str
             Claude model to use (default: claude-3-5-sonnet-20241022).
         """
-        self._api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        self._model = model
-        self._client = None
+        from ._ai_providers import AnthropicProvider
 
-        if not self._api_key:
-            raise ValueError("ANTHROPIC_API_KEY env var or api_key param required")
-
-    def _init_client(self):
-        """Lazy-initialize Anthropic client."""
-        if self._client is None:
-            try:
-                from anthropic import Anthropic
-            except ImportError:
-                raise ImportError("anthropic package required. Install with: pip install anthropic")
-            self._client = Anthropic(api_key=self._api_key)
-
-    @slash(description="Ask Claude a question and get an AI response.", guild_only=True)
-    async def ask(self, ctx, prompt: str) -> None:
-        """Ask Claude a question.
-
-        Parameters
-        ----------
-        ctx : Context
-            Command context.
-        prompt : str
-            Question or prompt for Claude.
-        """
-        await ctx.defer()
-
-        try:
-            self._init_client()
-
-            # Call Claude API
-            message = self._client.messages.create(
-                model=self._model,
-                max_tokens=1024,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-            )
-
-            # Extract response text
-            response_text = message.content[0].text
-
-            # Send response (truncate if too long)
-            if len(response_text) > 2000:
-                response_text = response_text[:1997] + "..."
-
-            await ctx.respond(response_text)
-
-        except ImportError:
-            await ctx.respond(
-                ctx.t(
-                    "openclaude.anthropic_not_installed",
-                    default="Anthropic SDK not installed. Run: `pip install anthropic`",
-                ),
-                ephemeral=True,
-            )
-        except Exception as exc:
-            await ctx.respond(
-                ctx.t(
-                    "openclaude.error",
-                    default="Error calling Claude: {error}",
-                    error=str(exc),
-                ),
-                ephemeral=True,
-            )
+        provider = AnthropicProvider(api_key=api_key, model=model)
+        super().__init__(provider=provider)

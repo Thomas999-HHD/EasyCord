@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pyflakes easycord/plugins/reaction_roles.py)",
+      "Bash(python -m pyflakes tests/test_reaction_roles_plugin.py)",
+      "Bash(pytest --tb=short)"
+    ]
+  }
+}
