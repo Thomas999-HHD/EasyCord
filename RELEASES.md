@@ -1,5 +1,101 @@
 # Release Notes
 
+## v3.8.0 — Extended Plugin Library & Complete Unified Framework
+
+**Release Date:** 2026-04-24
+
+EasyCord now ships with **13+ production-ready plugins** covering the full spectrum of bot features. This release adds three critical missing pieces: economy system, role persistence on rejoin, and community suggestions system.
+
+### New Plugins Added
+
+**Economy System** (`EconomyPlugin`)
+- Currency earning (messages, daily rewards)
+- Balance tracking per user
+- Transfer currency between members
+- Leaderboard
+- Extensible shop system
+
+```python
+from easycord.plugins import EconomyPlugin
+bot.add_plugin(EconomyPlugin())
+
+# Commands: /balance, /daily, /leaderboard, /transfer
+```
+
+**Role Persistence** (`RolePersistencePlugin`)
+- Automatically save member roles when they leave
+- Restore roles when they rejoin
+- Prevent role loss from temporary leaves
+- Zero configuration
+
+```python
+from easycord.plugins import RolePersistencePlugin
+bot.add_plugin(RolePersistencePlugin())
+
+# Automatic on member join/leave
+```
+
+**Suggestions System** (`SuggestionsPlugin`)
+- Members submit feature ideas
+- Community voting on suggestions
+- Admin approval/rejection workflow
+- Threaded suggestion management
+
+```python
+from easycord.plugins import SuggestionsPlugin
+bot.add_plugin(SuggestionsPlugin())
+
+# Commands: /suggest, /suggestions, /suggestion_approve, /suggestion_reject
+```
+
+### Complete Plugin Lineup (13 plugins)
+
+| Category | Plugin | Purpose |
+|----------|--------|---------|
+| **Moderation** | ModerationPlugin | Manual moderation (kick, ban, timeout, warn, mute) |
+| **Moderation** | AIModeratorPlugin | LLM-powered message analysis |
+| **Community** | ReactionRolesPlugin | Auto-assign roles via emoji |
+| **Community** | SuggestionsPlugin | Feature idea submissions & voting |
+| **Logging** | MemberLoggingPlugin | Audit trail (joins, leaves, changes) |
+| **Utility** | AutoResponderPlugin | Keyword/regex-triggered responses |
+| **Utility** | RolePersistencePlugin | Restore member roles on rejoin |
+| **Social** | StarboardPlugin | Archive popular messages |
+| **Social** | InviteTrackerPlugin | Track which invite brought members |
+| **Social** | WelcomePlugin | Welcome messages for new members |
+| **Economy** | EconomyPlugin | Currency, rewards, leaderboards |
+| **Leveling** | LevelsPlugin | XP, leveling, rank roles |
+| **Engagement** | PollsPlugin | Emoji-based voting |
+| **Admin** | TagsPlugin | Canned responses snippets |
+| **AI** | OpenClaudePlugin | Direct Claude API access |
+
+Load all at once:
+```python
+bot.load_builtin_plugins()
+```
+
+Or add selectively:
+```python
+bot.add_plugin(ModerationPlugin())
+bot.add_plugin(EconomyPlugin())
+bot.add_plugin(SuggestionsPlugin())
+bot.add_plugin(RolePersistencePlugin())
+```
+
+### Framework Completeness
+
+EasyCord now covers all major bot use cases:
+- ✅ Command handling & interactions
+- ✅ Event responses (member join/leave, messages, reactions)
+- ✅ Moderation (manual & AI)
+- ✅ Server management (roles, logging, welcomes)
+- ✅ Community features (suggestions, polls, starboard)
+- ✅ Economy & progression (currency, XP, leveling)
+- ✅ AI agents (orchestration, tool calling, multi-provider routing)
+- ✅ Configuration (per-guild, atomic, zero database required)
+- ✅ Middleware (permissions, rate limits, error handling)
+
+---
+
 ## v3.7.1 — Unified Bot Framework Positioning & Plugin Refactoring
 
 **Release Date:** 2026-04-24
