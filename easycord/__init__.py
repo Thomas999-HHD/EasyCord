@@ -28,6 +28,8 @@ from .i18n import LocalizationManager
 from .group import SlashGroup
 from .plugin import Plugin
 from .server_config import ServerConfig, ServerConfigStore
+from .tools import ToolCall, ToolDef, ToolRegistry, ToolResult, ToolSafety
+from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunContext
 
 __all__ = [
     "AuditLog",
@@ -40,6 +42,7 @@ __all__ = [
     "EmbedCard",
     "DatabaseConfig",
     "EasyCordDatabase",
+    "FallbackStrategy",
     "component",
     "ErrorEmbed",
     "GuildRecord",
@@ -49,10 +52,18 @@ __all__ = [
     "modal",
     "MemoryDatabase",
     "LocalizationManager",
+    "Orchestrator",
     "Plugin",
+    "ProviderStrategy",
+    "RunContext",
     "SelectMenuBuilder",
     "SlashGroup",
     "SuccessEmbed",
+    "ToolCall",
+    "ToolDef",
+    "ToolRegistry",
+    "ToolResult",
+    "ToolSafety",
     "slash",
     "on",
     "SQLiteDatabase",

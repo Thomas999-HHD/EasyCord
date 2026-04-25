@@ -19,6 +19,7 @@ from ._bot_events import _EventsMixin
 from ._bot_guild import _GuildMixin
 from ._bot_plugins import _PluginsMixin
 from .registry import InteractionRegistry
+from .tools import ToolRegistry
 
 logger = logging.getLogger("easycord")
 
@@ -78,6 +79,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
         self.ai_tools: dict[str, dict] = {}
+        self.tool_registry = ToolRegistry()
         self._error_handler = None
         self.db = database or self._create_database(
             db_backend=db_backend,
