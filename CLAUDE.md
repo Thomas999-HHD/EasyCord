@@ -53,6 +53,9 @@ easycord/               framework package
     ai_moderator.py     AIModeratorPlugin — LLM-powered message analysis
     reaction_roles.py   ReactionRolesPlugin — auto-assign roles via emoji
     member_logging.py   MemberLoggingPlugin — audit trail for member changes
+    auto_responder.py   AutoResponderPlugin — keyword/regex-triggered responses
+    starboard.py        StarboardPlugin — archive popular messages to channel
+    invite_tracker.py   InviteTrackerPlugin — track which invite code brought members
 server_commands/        example bot plugins (add new bot features here)
 tests/                  pytest suite — mirrors easycord/ structure
 docs/                   user-facing documentation
@@ -177,7 +180,59 @@ bot.add_plugin(MemberLoggingPlugin())
 # /member_log_config (to verify)
 ```
 
-### Complete Setup (All Together)
+### Auto-Responder (Keywords)
+
+```python
+from easycord import Bot
+from easycord.plugins import AutoResponderPlugin
+
+bot = Bot()
+bot.add_plugin(AutoResponderPlugin())
+
+# In Discord:
+# /responder_add hello "Hello there! 👋"
+# /responder_add_regex "^how.*" "I'm doing well, thanks!"
+# /responder_list
+# /responder_remove hello
+
+# Bot replies to any message containing "hello" or matching regex patterns
+```
+
+### Starboard (Popular Messages)
+
+```python
+from easycord import Bot
+from easycord.plugins import StarboardPlugin
+
+bot = Bot()
+bot.add_plugin(StarboardPlugin())
+
+# In Discord:
+# /starboard_channel #starboard
+# /starboard_emoji ⭐
+# /starboard_threshold 5
+
+# When a message gets 5+ ⭐ reactions, bot archives it to #starboard
+# Removes from starboard if reactions drop below threshold
+```
+
+### Invite Tracker
+
+```python
+from easycord import Bot
+from easycord.plugins import InviteTrackerPlugin
+
+bot = Bot()
+bot.add_plugin(InviteTrackerPlugin())
+
+# In Discord:
+# /invite_log_channel #welcome-logs
+
+# Bot logs which invite code was used when members join
+# Useful for tracking referral sources and growth
+```
+
+### Complete Setup (Moderation + Fun + Growth)
 
 ```python
 from easycord import Bot, Orchestrator, FallbackStrategy
@@ -186,6 +241,9 @@ from easycord.plugins import (
     AIModeratorPlugin,
     ReactionRolesPlugin,
     MemberLoggingPlugin,
+    AutoResponderPlugin,
+    StarboardPlugin,
+    InviteTrackerPlugin,
 )
 from easycord.plugins._ai_providers import AnthropicProvider
 
@@ -197,13 +255,18 @@ orchestrator = Orchestrator(
     bot.tool_registry,
 )
 
-# Manual moderation + audit
+# Moderation + Audit
 bot.add_plugin(ModerationPlugin())
+bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
 bot.add_plugin(MemberLoggingPlugin())
 
-# Optional: AI analysis + reaction roles
-bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
+# Community
 bot.add_plugin(ReactionRolesPlugin())
+bot.add_plugin(AutoResponderPlugin())
+bot.add_plugin(StarboardPlugin())
+
+# Analytics
+bot.add_plugin(InviteTrackerPlugin())
 
 bot.run("TOKEN")
 ```
