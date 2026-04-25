@@ -33,6 +33,7 @@ from .tools import ToolCall, ToolDef, ToolRegistry, ToolResult, ToolSafety
 from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunContext
 from .tool_limits import RateLimit, ToolLimiter
 from .conversation_memory import Conversation, ConversationMemory, ConversationTurn
+from .helpers import ConfigHelpers, ContextHelpers, RateLimitHelpers, ToolHelpers
 
 __all__ = [
     "AuditLog",
@@ -40,11 +41,13 @@ __all__ = [
     "Bot",
     "ButtonRowBuilder",
     "Composer",
+    "ConfigHelpers",
     "Conversation",
     "ConversationMemory",
     "ConversationTurn",
     "Context",
     "ContextBuilder",
+    "ContextHelpers",
     "EmbedBuilder",
     "EmbedCard",
     "DatabaseConfig",
@@ -63,12 +66,14 @@ __all__ = [
     "Plugin",
     "ProviderStrategy",
     "RateLimit",
+    "RateLimitHelpers",
     "RunContext",
     "SelectMenuBuilder",
     "SlashGroup",
     "SuccessEmbed",
     "ToolCall",
     "ToolDef",
+    "ToolHelpers",
     "ToolLimiter",
     "ToolRegistry",
     "ToolResult",
