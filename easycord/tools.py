@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from easycord.context import Context
+    from easycord.tool_limits import RateLimit
 
 
 class ToolSafety(Enum):
@@ -33,6 +34,7 @@ class ToolDef:
     allowed_roles: list[int] = field(default_factory=list)
     allowed_users: list[int] = field(default_factory=list)
     timeout_ms: int = 5000
+    rate_limit: RateLimit | None = None
 
 
 @dataclass
@@ -56,9 +58,12 @@ class ToolRegistry:
     """Registry of tools accessible to AI, with permission checks."""
 
     def __init__(self):
+        from easycord.tool_limits import ToolLimiter
+
         self._tools: dict[str, ToolDef] = {}
         self._allowlist: set[str] = set()
         self._denylist: set[str] = set()
+        self._limiter = ToolLimiter()
 
     def register(
         self,
@@ -72,6 +77,7 @@ class ToolRegistry:
         allowed_roles: list[int] | None = None,
         allowed_users: list[int] | None = None,
         timeout_ms: int = 5000,
+        rate_limit: RateLimit | None = None,
     ) -> None:
         """Register a tool (explicit opt-in)."""
         if name in self._tools:
@@ -88,6 +94,7 @@ class ToolRegistry:
             allowed_roles=allowed_roles or [],
             allowed_users=allowed_users or [],
             timeout_ms=timeout_ms,
+            rate_limit=rate_limit,
         )
         self._allowlist.add(name)
 
@@ -143,6 +150,13 @@ class ToolRegistry:
 
         if tool.allowed_users and ctx.user.id not in tool.allowed_users:
             return False, "User not allowed"
+
+        if tool.rate_limit:
+            allowed, reason = self._limiter.check_limit(
+                ctx.user.id, tool_name, tool.rate_limit
+            )
+            if not allowed:
+                return False, reason
 
         return True, None
 

@@ -31,6 +31,8 @@ from .plugin import Plugin
 from .server_config import ServerConfig, ServerConfigStore
 from .tools import ToolCall, ToolDef, ToolRegistry, ToolResult, ToolSafety
 from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunContext
+from .tool_limits import RateLimit, ToolLimiter
+from .conversation_memory import Conversation, ConversationMemory, ConversationTurn
 
 __all__ = [
     "AuditLog",
@@ -38,6 +40,9 @@ __all__ = [
     "Bot",
     "ButtonRowBuilder",
     "Composer",
+    "Conversation",
+    "ConversationMemory",
+    "ConversationTurn",
     "Context",
     "ContextBuilder",
     "EmbedBuilder",
@@ -57,12 +62,14 @@ __all__ = [
     "Orchestrator",
     "Plugin",
     "ProviderStrategy",
+    "RateLimit",
     "RunContext",
     "SelectMenuBuilder",
     "SlashGroup",
     "SuccessEmbed",
     "ToolCall",
     "ToolDef",
+    "ToolLimiter",
     "ToolRegistry",
     "ToolResult",
     "ToolSafety",

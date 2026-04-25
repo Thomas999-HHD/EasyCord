@@ -10,6 +10,7 @@ from easycord.tools import ToolCall, ToolRegistry
 if TYPE_CHECKING:
     from easycord.context import Context
     from easycord.plugins._ai_providers import AIProvider
+    from easycord.conversation_memory import ConversationMemory
 
 
 @dataclass
@@ -21,6 +22,7 @@ class RunContext:
     max_steps: int = 5
     timeout_ms: int = 30000
     system_prompt: str | None = None  # AI system context
+    conversation_memory: ConversationMemory | None = None  # For multi-turn
 
 
 @dataclass
@@ -133,6 +135,13 @@ class Orchestrator:
 
                 # Check for final text
                 if output.text:
+                    # Save to conversation memory if provided
+                    if run_ctx.conversation_memory:
+                        run_ctx.conversation_memory.add_assistant_message(
+                            run_ctx.ctx.user.id,
+                            output.text,
+                            run_ctx.ctx.guild.id if run_ctx.ctx.guild else None,
+                        )
                     return FinalResponse(
                         text=output.text,
                         provider=provider,

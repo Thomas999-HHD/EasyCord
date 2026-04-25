@@ -191,6 +191,7 @@ def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
 def ai_tool(
     description: str = "No description provided.",
     parameters: dict | None = None,
+    rate_limit: tuple[int, int] | None = None,
 ) -> Callable:
     """Mark a Plugin method as an AI-callable function tool.
 
@@ -204,6 +205,8 @@ def ai_tool(
         Description of what this tool does, shown to the AI.
     parameters:
         JSON schema describing the tool's parameters (if any).
+    rate_limit:
+        Tuple of (max_calls, window_minutes) to rate limit this tool per user.
 
     Example::
 
@@ -214,18 +217,12 @@ def ai_tool(
                 return f"Guild has {len(ctx.guild.members)} members"
 
             @ai_tool(
-                description="Search for a member by name",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "Member name to search"}
-                    },
-                    "required": ["name"]
-                }
+                description="Ban a user (max 3/hour)",
+                parameters={...},
+                rate_limit=(3, 60)
             )
-            async def find_member(self, ctx, name: str):
-                matches = [m for m in ctx.guild.members if name.lower() in m.name.lower()]
-                return f"Found {len(matches)} members matching '{name}'"
+            async def ban_user(self, ctx, user_id: int):
+                ...
     """
 
     def decorator(func: Callable) -> Callable:
@@ -233,6 +230,7 @@ def ai_tool(
         func._ai_tool_name = func.__name__
         func._ai_tool_description = description
         func._ai_tool_parameters = parameters or {}
+        func._ai_tool_rate_limit = rate_limit
         return func
 
     return decorator
