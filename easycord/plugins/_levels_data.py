@@ -61,8 +61,22 @@ class LevelsStore:
     def __init__(self, data_dir: str) -> None:
         self._data_dir = Path(data_dir)
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        self._xp_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
-        self._cfg_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._xp_locks: dict[int, asyncio.Lock] = {}
+        self._cfg_locks: dict[int, asyncio.Lock] = {}
+
+    # ── Lock helpers ──────────────────────────────────────────
+
+    def _get_xp_lock(self, guild_id: int) -> asyncio.Lock:
+        """Get or create XP lock for guild (lazy-init inside async context)."""
+        if guild_id not in self._xp_locks:
+            self._xp_locks[guild_id] = asyncio.Lock()
+        return self._xp_locks[guild_id]
+
+    def _get_cfg_lock(self, guild_id: int) -> asyncio.Lock:
+        """Get or create config lock for guild (lazy-init inside async context)."""
+        if guild_id not in self._cfg_locks:
+            self._cfg_locks[guild_id] = asyncio.Lock()
+        return self._cfg_locks[guild_id]
 
     # ── Paths ─────────────────────────────────────────────────
 
@@ -92,7 +106,7 @@ class LevelsStore:
         self, guild_id: int, user_id: int, amount: int
     ) -> tuple[int, int, bool]:
         """Add *amount* XP and return ``(total_xp, level, leveled_up)``."""
-        async with self._xp_locks[guild_id]:
+        async with self._get_xp_lock(guild_id):
             data = self.read_xp(guild_id)
             uid = str(user_id)
             entry = data.get(uid, {"xp": 0, "level": 0})
@@ -118,7 +132,7 @@ class LevelsStore:
 
     async def update_config(self, guild_id: int, fn: Callable[[dict], object]) -> object:
         """Read config, call ``fn(config)`` under a lock, write back atomically."""
-        async with self._cfg_locks[guild_id]:
+        async with self._get_cfg_lock(guild_id):
             config = self.read_config(guild_id)
             result = fn(config)
             path = self._cfg_path(guild_id)
