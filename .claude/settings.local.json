@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(git check-ignore *)",
+      "Bash(git worktree *)",
+      "Bash(git push *)",
+      "Bash(git ls-tree *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}
