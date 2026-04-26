@@ -30,6 +30,26 @@ await bot.client.http.ban(user.id, ctx.guild.id, reason="spam")
 
 This is why we ask for trust: not promises, but open doors.
 
+---
+
+## ⚡ Try It Now (60 seconds)
+
+Get a working bot with role management **instantly**:
+
+```bash
+pip install easycord
+easycord quickstart
+```
+
+Walks you through:
+1. Discord token
+2. Server ID
+3. Role preset (community, gaming, developer, or minimal)
+
+Then your bot is **live** with safe, consistent role systems.
+
+---
+
 ## Start here
 
 1. Install from GitHub: `pip install git+https://github.com/rolling-codes/EasyCord.git`

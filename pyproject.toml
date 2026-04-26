@@ -37,6 +37,9 @@ dev = [
     "twine",
 ]
 
+[project.scripts]
+easycord = "easycord.cli.__main__:main"
+
 [project.urls]
 Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
