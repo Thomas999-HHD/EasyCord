@@ -12,6 +12,7 @@ def slash(
     guild_only: bool = False,
     ephemeral: bool = False,
     permissions: list[str] | None = None,
+    capabilities: list[str] | None = None,
     cooldown: float | None = None,
     autocomplete: dict[str, Callable] | None = None,
     choices: dict[str, list] | None = None,
@@ -59,6 +60,7 @@ def slash(
         func._slash_guild_only = guild_only
         func._slash_ephemeral = ephemeral
         func._slash_permissions = permissions
+        func._slash_capabilities = capabilities
         func._slash_cooldown = cooldown
         func._slash_autocomplete = autocomplete or {}
         func._slash_choices = choices or {}
