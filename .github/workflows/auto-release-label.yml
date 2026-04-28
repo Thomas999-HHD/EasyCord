@@ -1,11 +1,12 @@
 name: Auto Release Label
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
 
 permissions:
-  pull-requests: write
+  contents: read
+  issues: write
 
 jobs:
   ensure-release-label:
