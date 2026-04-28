@@ -4,14 +4,14 @@ This guide focuses on practical ways to make EasyCord bots feel faster for end u
 
 ## 1) Keep interaction latency low
 
-Discord interactions should be acknowledged quickly. If a command may take more than ~1–2 seconds, defer first and then send follow-up output.
+Discord interactions should be acknowledged quickly. If a command may take more than ~1-2 seconds, defer first and then send follow-up output.
 
 ```python
 @bot.slash(description="Generate a long report")
 async def report(ctx):
     await ctx.defer(ephemeral=True)
     data = await build_report()
-    await ctx.respond(f"Done: {data.summary}")
+    await ctx.respond(f"Done: {data.summary}", ephemeral=True)
 ```
 
 ### Why this helps
@@ -81,9 +81,11 @@ Combine both when commands involve external APIs or intensive work.
 
 At minimum:
 
-- Log command name and user ID.
-- Log failures with stack traces.
-- Measure median and p95 command duration.
+- Log command names with pseudonymized user identifiers, hashed IDs, or non-PII user tokens when user-level tracing is required.
+- Define retention and redaction policies for logs, including maximum retention periods and automatic redaction or rotation.
+- Respect opt-out, consent, and compliance requirements for your community and jurisdiction.
+- Log failures with stack traces only after redacting secrets and PII, or store full traces behind secure access controls.
+- Measure median and p95 command duration without storing PII in metrics.
 
 This quickly shows where users experience slowness.
 
