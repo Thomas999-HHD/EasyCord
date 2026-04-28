@@ -225,6 +225,47 @@ class FunPlugin(Plugin):
 bot.add_plugin(FunPlugin())
 ```
 
+### Helper classes for plugin authors
+
+When a plugin needs shared state, guild-only checks, or per-guild JSON config,
+start with the helper classes in `easycord.plugins.base`:
+
+- `IntegrationPlugin` for calling other plugins and named endpoints
+- `GuildPlugin` for guild-only command flows
+- `JsonConfigPlugin` for small per-guild JSON-backed settings
+
+```python
+from easycord import IntegrationPlugin, slash
+
+class StatsPlugin(IntegrationPlugin):
+    @slash(description="Show tag stats", guild_only=True)
+    async def stats(self, ctx):
+        tags = self.require_plugin("TagsPlugin")
+        names = tags._store.list_names(ctx.guild_id)
+        await ctx.respond(f"{len(names)} tags found.")
+```
+
+### Shared endpoints
+
+If two plugins need the same reusable logic, register a named endpoint and call
+it from another plugin. You can use either `@bot.endpoint("name")` or bare
+`@bot.endpoint` if the function name is the endpoint name you want:
+
+```python
+from easycord import Bot, Plugin, endpoint, slash
+
+bot = Bot()
+
+@bot.endpoint("format_tag")
+async def format_tag(text: str) -> str:
+    return f"`{text}`"
+
+class TagPlugin(Plugin):
+    @slash(description="Echo formatted text", guild_only=True)
+    async def echo(self, ctx, text: str):
+        await ctx.respond(await self.bot.call_endpoint("format_tag", text))
+```
+
 ### Plugin lifecycle
 
 - `add_plugin()`:

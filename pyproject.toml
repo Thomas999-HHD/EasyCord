@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "3.1.3"
-description = "Decorator-first Discord bot framework — slash commands, context menus, components, modals, and a powerful plugin architecture"
+version = "4.1"
+description = "EasyCord Discord Framework — beginner-friendly Discord bot framework with slash commands, cogs, extensions, context menus, components, modals, and plugins"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-keywords = ["discord", "discord.py", "bot", "framework", "slash commands", "middleware", "plugins"]
+keywords = ["discord", "discord.py", "bot", "framework", "discord framework", "slash commands", "cogs", "extensions", "middleware", "plugins"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -20,6 +20,7 @@ classifiers = [
     "Topic :: Communications :: Chat",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Framework :: AsyncIO",
+    "Topic :: Communications :: IRC",
 ]
 dependencies = [
     "discord.py>=2.0.0",
@@ -38,10 +39,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage       = "https://github.com/rolling-codes"
-Repository     = "https://github.com/rolling-codes"
-Issues         = "https://github.com/rolling-codes/issues"
-Documentation  = "https://github.com/rolling-codes"
+Homepage       = "https://github.com/rolling-codes/EasyCord"
+Repository     = "https://github.com/rolling-codes/EasyCord"
+Issues         = "https://github.com/rolling-codes/EasyCord/issues"
+Documentation  = "https://github.com/rolling-codes/EasyCord#readme"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -74,6 +74,12 @@ class ChannelMixin:
             raise RuntimeError("fetch_messages can only be used in a messageable channel")
         return [m async for m in self.channel.history(limit=limit)]  # type: ignore[attr-defined]
 
+    async def fetch_message(self, message_id: int) -> discord.Message:
+        """Fetch a single message by ID from the current channel."""
+        if not isinstance(self.channel, discord.abc.Messageable):  # type: ignore[attr-defined]
+            raise RuntimeError("fetch_message can only be used in a messageable channel")
+        return await self.channel.fetch_message(message_id)  # type: ignore[attr-defined]
+
     # ── Reactions ─────────────────────────────────────────────
 
     async def react(self, message: discord.Message, emoji: str) -> None:

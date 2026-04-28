@@ -275,6 +275,7 @@ class _CommandsMixin:
             )
         group._bot = self
         self._plugins.append(group)
+        self._track_extension_addition(group)
 
         discord_group = app_commands.Group(
             name=group._group_name,

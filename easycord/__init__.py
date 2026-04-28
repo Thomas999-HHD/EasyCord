@@ -1,5 +1,5 @@
 """
-A developer-friendly framework for building Discord bots.
+EasyCord Discord Framework for building Discord bots.
 
 Quick start::
 
@@ -18,28 +18,38 @@ Quick start::
 
 from .audit import AuditLog
 from .bot import Bot
+from .cog import Cog, GroupCog
 from .builders import ButtonRowBuilder, EmbedBuilder, ModalBuilder, SelectMenuBuilder
 from .composer import Composer
 from .context import Context
-from .decorators import component, message_command, modal, on, slash, task, user_command
+from .decorators import component, endpoint, message_command, modal, on, slash, task, user_command
 from .i18n import LocalizationManager
 from .group import SlashGroup
 from .plugin import Plugin
 from .server_config import ServerConfig, ServerConfigStore
+from .plugins import AnnouncementsPlugin, AutoReplyPlugin, GuildPlugin, IntegrationPlugin, JsonConfigPlugin
 
 __all__ = [
     "AuditLog",
+    "AnnouncementsPlugin",
     "Bot",
     "ButtonRowBuilder",
+    "Cog",
+    "AutoReplyPlugin",
     "Composer",
     "Context",
     "EmbedBuilder",
     "component",
+    "endpoint",
     "LocalizationManager",
+    "GuildPlugin",
+    "IntegrationPlugin",
+    "GroupCog",
     "ModalBuilder",
     "message_command",
     "modal",
     "Plugin",
+    "JsonConfigPlugin",
     "SelectMenuBuilder",
     "SlashGroup",
     "slash",

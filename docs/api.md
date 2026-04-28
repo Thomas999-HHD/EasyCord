@@ -1,4 +1,4 @@
-# API reference
+# EasyCord Discord Framework API reference
 
 ## Start here
 
@@ -8,7 +8,11 @@ If you are learning the framework for the first time, these are the main buildin
 | --- | --- |
 | Make a command | `@bot.slash(...)` |
 | Load multiple plugins | `bot.add_plugins(...)` |
+| Load bundled plugins | `bot.load_builtin_plugins()` |
+| Load cogs / extensions | `bot.add_cog(...)` / `bot.load_extension(...)` |
+| Register shared endpoints | `@bot.endpoint(...)` / `@endpoint(...)` |
 | Load multiple groups | `bot.add_groups(...)` |
+| Group class-based commands | `Cog` / `GroupCog` |
 | Group related commands | subclass `SlashGroup` |
 | Add buttons or select menus | `@bot.component(...)` |
 | Add context menus | `@bot.user_command(...)` / `@bot.message_command(...)` |
@@ -58,6 +62,8 @@ need, then register a few slash commands on top.
 
 `Bot.on(event)` — decorator; event name without `on_` prefix; multiple handlers per event supported
 
+`Bot.listen(event=None)` — discord.py-style event decorator; bare form infers from function name and strips `on_` when present
+
 `Bot.use(middleware)` — register middleware (decorator or direct call); runs for slash commands only
 
 `bot.localization` / `bot.i18n` — `LocalizationManager` instance used by `Context.t(...)`
@@ -75,6 +81,18 @@ need, then register a few slash commands on top.
 `await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
 
 `await Bot.reload_plugin(name: str)` — reload a plugin in-place by class name; calls `on_unload()` then `on_load()` on the same instance; constructor arguments and in-memory state preserved; raises `ValueError` if no loaded plugin has that class name
+
+`Bot.add_cog(cog)` — register a `Cog` or `GroupCog` instance using the same plugin plumbing
+
+`Bot.get_cog(name)` / `Bot.cogs` — inspect loaded cogs by class/configured name
+
+`await Bot.remove_cog(cog_or_name)` — unload a cog by instance or name
+
+`await Bot.load_extension(name)` / `await Bot.unload_extension(name)` / `await Bot.reload_extension(name)` — module-based loading with `setup(bot)` and optional `teardown(bot)`
+
+`@bot.endpoint(name=None)` — register a reusable callable by stable name so plugins can call into existing behavior
+
+`bot.get_endpoint(name)` / `bot.require_endpoint(name)` / `await bot.call_endpoint(name, ...)` — inspect and call registered endpoints
 
 ### Guild / Channel / Webhook / Emoji
 
@@ -110,6 +128,14 @@ Middleware runs on component interactions exactly as it does for slash commands.
 
 `await Bot.fetch_user(user_id)` — inherited from `discord.Client`; cache-first
 
+`ctx.send(...)` / `ctx.reply(...)` — aliases for `ctx.respond(...)`
+
+`ctx.author` — alias for `ctx.user`
+
+`ctx.me` — bot user/member in the current guild when available
+
+`await ctx.fetch_message(message_id)` — fetch one message from the current channel by ID
+
 `await Bot.set_status(status="online", *, activity=None, activity_type="playing")` — status: `"online" | "idle" | "dnd" | "invisible"`; activity_type: `"playing" | "watching" | "listening" | "streaming"`
 
 `Bot.run(token, **kwargs)` — configures logging, starts the bot
@@ -120,6 +146,30 @@ Middleware runs on component interactions exactly as it does for slash commands.
 
 `bot.localization.register(locale, translations)` — add or merge a locale catalog
 
+### Plugin development helpers
+
+`IntegrationPlugin` — base class with `get_plugin(...)`, `require_plugin(...)`, `get_endpoint(...)`, `require_endpoint(...)`, and `call_endpoint(...)` helpers for cross-plugin integration
+
+`GuildPlugin` — base class with `require_guild(ctx)` and `require_text_channel(ctx)` helpers for guild-only plugins
+
+`JsonConfigPlugin` — `GuildPlugin` subclass with one JSON config file per guild: `_read_config(guild_id)`, `_write_config(guild_id, config)`, `_update_config(guild_id, updater)`
+
+### Cogs and extensions
+
+`Cog` — class-based container for slash commands and listeners; mirrors discord.py naming and inspection helpers
+
+`GroupCog` — `Cog` subclass that also acts as a slash-command group namespace
+
+`Cog.listener()` — decorator for cog listeners; bare `@Cog.listener` infers the event name from the method
+
+`cog.get_commands()` / `cog.get_app_commands()` / `cog.get_listeners()` — inspection helpers for loaded methods
+
+### First-party plugins
+
+`AnnouncementsPlugin` — configure one announcement channel and post embed announcements with `/announce`
+
+`AutoReplyPlugin` — store trigger/response pairs and reply automatically when a message exactly matches a trigger
+
 ---
 
 ## `easycord.Context`
@@ -129,6 +179,7 @@ Middleware runs on component interactions exactly as it does for slash commands.
 | Property | Type | Description |
 | --- | --- | --- |
 | `ctx.interaction` | `discord.Interaction` | Underlying interaction |
+| `ctx.bot` | `discord.Client` | Interaction client / bot instance |
 | `ctx.user` | `User \| Member` | Invoking user |
 | `ctx.member` | `Member \| None` | Invoking user as `Member` (has `.roles`, `.nick`, `.guild_permissions`); `None` in DMs |
 | `ctx.guild` | `Guild \| None` | Server or `None` in DMs |
@@ -145,6 +196,8 @@ Middleware runs on component interactions exactly as it does for slash commands.
 ### Responding
 
 `await ctx.respond(content=None, *, ephemeral=False, embed=None, **kwargs)` — first call: `send_message`; subsequent: `followup.send`
+
+`await ctx.send(...)` / `await ctx.reply(...)` — aliases for `ctx.respond(...)`
 
 `await ctx.defer(*, ephemeral=False)` — acknowledge without visible reply; use before slow operations
 

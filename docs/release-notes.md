@@ -1,51 +1,49 @@
-# Release notes for 3.1.3
+# Release notes for 4.1
 
-Release date: 2026-04-22
+Release date: 2026-04-28
 
-This release focuses on lowering the amount of boilerplate you need to write at the start of a bot project while also making the framework easier to extend safely.
+This release closes the biggest EasyCord Discord Framework parity gaps by adding class-based cogs, extension loading, and a clearer release path while keeping the framework lightweight.
 
 ## Highlights
 
-- Added auto-configured database support through `Bot.db`.
-- Added bundled first-party plugin loading with `bot.load_builtin_plugins()`.
-- Added reusable embed-card helpers for prebuilt embeds with buttons and select menus.
-- Added a lightweight localization manager plus `ctx.locale`, `ctx.guild_locale`, and `ctx.t(...)`.
-- Switched built-in command guard text to localized lookup when translations are provided.
+- Added `Cog` and `GroupCog` for class-based command and listener organization.
+- Added extension loading with `load_extension()`, `unload_extension()`, and `reload_extension()`.
+- Added release automation so tagged versions can publish themselves.
+- Added `Bot.add_cog()`, `Bot.get_cog()`, `Bot.remove_cog()`, and cog inspection helpers.
+- Added `bot.load_builtin_plugins()` as the obvious way to load the bundled first-party plugin pack.
+- Kept the beginner-friendly helpers from the prior release: database auto-config, built-in plugins, embed cards, and localization.
 
 ## What changed
 
-- Simplified the starter path with smaller example entrypoints and shared runtime helpers.
-- Centralized bundled plugin loading so the default plugin set is defined in one place.
-- Added bulk helpers like `Bot.add_plugins(...)`, `Composer.add_plugins(...)`, `Bot.add_groups(...)`, and `Composer.add_groups(...)`.
-- Added more `discord.py` command metadata support: `nsfw`, `allowed_contexts`, and `allowed_installs` for slash commands and context menus.
-- Expanded `SlashGroup` so grouped slash commands can carry their own policy settings.
-- Added `examples/group_bot.py` to show grouped commands in a small, copyable example.
-- Trimmed repeated file I/O and guild checks in the bundled plugins with shared helpers.
-- Tightened the docs so the API reference starts with the shortest beginner-friendly path.
+- Added a cog layer that mirrors `discord.py` naming and grouping conventions.
+- Added extension hooks so modules can define `setup(bot)` and `teardown(bot)` like `discord.py`.
+- Added a local `scripts/release.ps1` helper and a GitHub Actions workflow for tagged releases.
+- Updated the handoff files so Cloud Code can pick up the current state without rebuilding the story from scratch.
 
 ## Why it helps
 
-- You can get a bot running faster with fewer one-off helper classes.
-- Plugin and command-group wiring stays more consistent as a project grows.
-- Locale-aware strings make it easier to tailor responses without hardcoding every message in one language.
-- The new embed helpers make it simpler to reuse polished message layouts.
+- Discord.py users get familiar entry points instead of learning a new mental model for everything.
+- Extensions and cogs make larger bots easier to split into manageable parts.
+- Release automation keeps versioning and publishing more repeatable.
+- The model files now carry the latest working context for the next agent.
 
 ## How to use the new pieces
 
-- Use `bot.load_builtin_plugins()` when you want the bundled welcome, tags, polls, and leveling plugins.
-- Use `Bot.db` for framework-owned storage instead of opening SQLite files directly.
-- Use `EmbedCard` and the themed embed wrappers when you want an existing embed plus buttons or select menus.
-- Use `LocalizationManager` and `ctx.t(...)` for translated strings, especially framework-facing error text or reusable command copy.
+- Use `Cog` when you want a class that groups slash commands and listeners.
+- Use `GroupCog` when that cog should also act as a slash-command namespace.
+- Use `bot.load_extension("my_module")` when you want module-based loading with `setup(bot)`.
+- Use `.github/workflows/release.yml` or `scripts/release.ps1` when you are publishing a tagged release.
 
 ## Upgrade notes
 
-- Existing bots can adopt the new features incrementally.
-- Nothing in this release requires a code migration for existing slash commands or plugins.
-- If you only want the new localization helpers, you can start by wrapping a single response string and expand from there.
+- Existing bots can adopt cogs and extensions incrementally.
+- You do not need to convert existing plugins immediately.
+- If you already use plugins, you can treat cogs as the higher-parity option for new feature areas.
 
 ## Validation
 
-- `python -m pytest tests/test_group.py tests/test_bot.py tests/test_composer.py tests/test_server_commands.py tests/test_package_exports.py tests/test_decorators.py tests/test_context.py tests/test_i18n.py`
+- `python -m pytest tests/test_group.py tests/test_bot.py tests/test_composer.py tests/test_server_commands.py tests/test_package_exports.py tests/test_decorators.py tests/test_context.py tests/test_i18n.py tests/test_plugin_base.py tests/test_announcements_plugin.py tests/test_autoreply_plugin.py tests/test_cog_and_extensions.py`
+- `python -m pytest` (`472 passed`)
 - `python -m compileall easycord examples docs tests`
 
 Note: On Windows, pytest may emit temp/cache permission warnings that can be safely ignored if the test slice passes.

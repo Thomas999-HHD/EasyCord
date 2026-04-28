@@ -190,3 +190,22 @@ def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
         return func
 
     return decorator
+
+
+def endpoint(name: str | Callable | None = None) -> Callable:
+    """Mark a Plugin method as a reusable named endpoint.
+
+    Endpoints are lightweight integration points for sharing behavior between
+    plugins or for exposing bot-level helper functions through a stable name.
+    """
+    if callable(name):
+        name._is_endpoint = True
+        name._endpoint_name = name.__name__
+        return name
+
+    def decorator(func: Callable) -> Callable:
+        func._is_endpoint = True
+        func._endpoint_name = name or func.__name__
+        return func
+
+    return decorator

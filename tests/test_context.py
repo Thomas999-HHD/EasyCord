@@ -27,6 +27,14 @@ def test_user_property(ctx, interaction):
     assert ctx.user is interaction.user
 
 
+def test_bot_property(ctx, interaction):
+    assert ctx.bot is interaction.client
+
+
+def test_author_property_is_user_alias(ctx, interaction):
+    assert ctx.author is interaction.user
+
+
 def test_guild_property(ctx, interaction):
     assert ctx.guild is interaction.guild
 
@@ -102,6 +110,21 @@ def test_is_admin_false_in_dm(ctx, interaction):
     assert ctx.is_admin is False
 
 
+def test_me_property_prefers_guild_member(ctx, interaction):
+    me = MagicMock(spec=discord.Member)
+    interaction.guild = MagicMock()
+    interaction.guild.me = me
+    assert ctx.me is me
+
+
+def test_me_property_falls_back_to_client_user(ctx, interaction):
+    bot_user = MagicMock(spec=discord.ClientUser)
+    interaction.guild = None
+    interaction.client = MagicMock()
+    interaction.client.user = bot_user
+    assert ctx.me is bot_user
+
+
 # --- respond ---
 
 async def test_respond_first_call_uses_send_message(ctx, interaction):
@@ -126,6 +149,20 @@ async def test_respond_with_embed(ctx, interaction):
     await ctx.respond(embed=embed)
     interaction.response.send_message.assert_called_once_with(
         None, ephemeral=False, embed=embed
+    )
+
+
+async def test_send_aliases_respond(ctx, interaction):
+    await ctx.send("Hello")
+    interaction.response.send_message.assert_called_once_with(
+        "Hello", ephemeral=False, embed=None
+    )
+
+
+async def test_reply_aliases_respond(ctx, interaction):
+    await ctx.reply("Hello")
+    interaction.response.send_message.assert_called_once_with(
+        "Hello", ephemeral=False, embed=None
     )
 
 
@@ -234,6 +271,16 @@ async def test_send_to_fetches_when_not_cached(ctx, interaction):
     await ctx.send_to(999, "hi")
     interaction.client.fetch_channel.assert_called_once_with(999)
     mock_channel.send.assert_called_once_with("hi")
+
+
+async def test_fetch_message_uses_channel_fetch_message(ctx, interaction):
+    message = MagicMock(spec=discord.Message)
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.fetch_message = AsyncMock(return_value=message)
+    interaction.channel = channel
+    result = await ctx.fetch_message(123)
+    assert result is message
+    channel.fetch_message.assert_called_once_with(123)
 
 
 # ── voice_channel ─────────────────────────────────────────────────────────────

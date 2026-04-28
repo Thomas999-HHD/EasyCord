@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Callable
+from types import ModuleType
 
 import discord
 from discord import app_commands
@@ -67,6 +68,12 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._event_handlers: dict[str, list[Callable]] = {}
         self._plugins: list[Plugin] = []
         self._task_handles: dict[int, list[asyncio.Task]] = {}
+        self._builtin_plugins_loaded = False
+        self._extensions: dict[str, ModuleType] = {}
+        self._extension_additions: dict[str, list[Plugin]] = {}
+        self._extension_endpoints: dict[str, list[str]] = {}
+        self._active_extension: str | None = None
+        self._endpoints: dict[str, dict[str, Callable]] = {}
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
         self._error_handler = None

@@ -39,6 +39,30 @@ class _EventsMixin:
 
         return decorator
 
+    def listen(self, event=None):
+        """Register an event listener using discord.py-style naming.
+
+        Supports both ``@bot.listen("message")`` and bare ``@bot.listen``.
+        A bare decorator infers the event name from the function name and strips
+        a leading ``on_`` prefix when present.
+        """
+        if callable(event):
+            func = event
+            event_name = func.__name__[3:] if func.__name__.startswith("on_") else func.__name__
+            if not event_name:
+                raise ValueError("event name must be a non-empty string")
+            self._event_handlers.setdefault(event_name, []).append(func)
+            return func
+
+        def decorator(func: Callable) -> Callable:
+            event_name = event or (func.__name__[3:] if func.__name__.startswith("on_") else func.__name__)
+            if not isinstance(event_name, str) or not event_name:
+                raise ValueError("event name must be a non-empty string")
+            self._event_handlers.setdefault(event_name, []).append(func)
+            return func
+
+        return decorator
+
     def dispatch(self, event: str, /, *args, **kwargs) -> None:
         super().dispatch(event, *args, **kwargs)
         for handler in list(self._event_handlers.get(event, [])):

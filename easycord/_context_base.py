@@ -29,6 +29,16 @@ class BaseContext:
         return self.interaction.user
 
     @property
+    def bot(self):
+        """Alias for the interaction client, matching common discord.py patterns."""
+        return self.interaction.client
+
+    @property
+    def author(self) -> discord.User | discord.Member:
+        """Alias for ``ctx.user`` to mirror ``discord.py`` naming."""
+        return self.user
+
+    @property
     def guild(self) -> discord.Guild | None:
         """The server the command was run in, or ``None`` if it was in a DM."""
         return self.interaction.guild
@@ -70,6 +80,16 @@ class BaseContext:
         if isinstance(member, discord.Member) and member.voice:
             return member.voice.channel  # type: ignore[return-value]
         return None
+
+    @property
+    def me(self) -> discord.ClientUser | discord.Member | None:
+        """The bot user, or the guild member representation when available."""
+        if self.guild is not None:
+            me = getattr(self.guild, "me", None)
+            if me is not None:
+                return me
+        client = self.bot
+        return getattr(client, "user", None)
 
     def t(
         self,
@@ -120,6 +140,28 @@ class BaseContext:
             await self.interaction.followup.send(
                 content, ephemeral=ephemeral, embed=embed, **kwargs
             )
+
+    async def send(
+        self,
+        content: str | None = None,
+        *,
+        ephemeral: bool = False,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ) -> None:
+        """Alias for :meth:`respond` that feels like ``discord.py``'s message API."""
+        await self.respond(content, ephemeral=ephemeral, embed=embed, **kwargs)
+
+    async def reply(
+        self,
+        content: str | None = None,
+        *,
+        ephemeral: bool = False,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ) -> None:
+        """Alias for :meth:`respond` that mirrors ``discord.py`` context replies."""
+        await self.respond(content, ephemeral=ephemeral, embed=embed, **kwargs)
 
     async def defer(self, *, ephemeral: bool = False) -> None:
         """Acknowledge the interaction without sending a visible reply yet.

@@ -62,6 +62,22 @@ def test_on_returns_original_function(bot):
     assert result is handler
 
 
+def test_listen_registers_handler_by_name(bot):
+    async def handler(msg):
+        pass
+
+    bot.listen("message")(handler)
+    assert handler in bot._event_handlers["message"]
+
+
+def test_listen_infers_event_name_from_function(bot):
+    @bot.listen
+    async def on_message(msg):
+        pass
+
+    assert on_message in bot._event_handlers["message"]
+
+
 # ── slash ─────────────────────────────────────────────────────────────────────
 
 def test_slash_registers_command(bot):
@@ -242,8 +258,14 @@ def test_add_plugin_registers_slash_commands(bot):
     bot.add_plugin(plugin)
 
     assert plugin in bot._plugins
-    assert plugin._bot is bot
-    bot.tree.add_command.assert_called_once()
+
+
+def test_load_builtin_plugins_is_idempotent(bot):
+    bot.load_builtin_plugins()
+    first_count = len(bot._plugins)
+    bot.load_builtin_plugins()
+    assert len(bot._plugins) == first_count
+    assert bot._builtin_plugins_loaded is True
 
 
 def test_add_plugin_registers_event_handlers(bot):

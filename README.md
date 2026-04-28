@@ -1,10 +1,10 @@
-# Discord Bot Framework
+# EasyCord Discord Framework
 
 ![PyPI](https://img.shields.io/pypi/v/easycord)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> This framework helps beginners build Discord bots faster by removing boilerplate around slash commands, components, plugins, and moderation helpers.
+> EasyCord Discord Framework helps people build Discord bots faster by removing boilerplate around slash commands, cogs, extensions, components, plugins, and moderation helpers.
 
 ## Start here
 
@@ -24,11 +24,11 @@ async def ping(ctx):
 bot.run("YOUR_TOKEN")
 ```
 
-If you want the shortest possible path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
+If you want the shortest possible path to a working bot in the EasyCord Discord Framework, open [`docs/getting-started.md`](docs/getting-started.md).
 
 ## Why this exists
 
-This framework was built for the moment a bot stops being a weekend project and starts becoming the thing you actually rely on. The goal is simple: let beginners ship features without spending their first hour learning Discord plumbing.
+EasyCord Discord Framework was built for the moment a bot stops being a weekend project and starts becoming the thing you actually rely on. The goal is simple: let beginners ship features without spending their first hour learning Discord plumbing.
 
 | Task | Raw `discord.py` | This framework |
 | --- | --- | --- |
@@ -56,9 +56,12 @@ my_bot/
 
 ## Core pieces
 
-- `Bot` for slash commands, events, components, and plugin loading
+- `Bot` for slash commands, events, components, cog loading, extension loading, bundled plugin loading, and plugin loading
+- `Cog` and `GroupCog` for class-based organization closer to `discord.py`
+- `IntegrationPlugin` for plugin-to-plugin and endpoint reuse
 - `LocalizationManager` for lightweight locale-aware strings and fallback
 - `Plugin` for reusable feature bundles
+- `GuildPlugin` and `JsonConfigPlugin` for authoring first-party plugins with less boilerplate
 - `Composer` for a fluent setup style
 - `Context` for the common reply, DM, embed, moderation, and localization helpers
 - Middleware for logging, error handling, rate limiting, and guards
@@ -76,6 +79,7 @@ my_bot/
 - [`examples/basic_bot.py`](examples/basic_bot.py): the smallest practical starter bot
 - [`examples/plugin_bot.py`](examples/plugin_bot.py): a feature split across plugins
 - [`examples/group_bot.py`](examples/group_bot.py): grouped slash commands with `SlashGroup`
+- [`easycord/cog.py`](easycord/cog.py): cogs and extension-friendly class-based helpers
 - [`docs/index.md`](docs/index.md): documentation home
 - [`docs/examples.md`](docs/examples.md): patterns and snippets
 - [`docs/fork-and-expand.md`](docs/fork-and-expand.md): how to grow a real bot project

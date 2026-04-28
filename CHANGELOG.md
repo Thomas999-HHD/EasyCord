@@ -1,5 +1,46 @@
 # Changelog
 
+## [4.1] — 2026-04-28
+
+EasyCord Discord Framework parity, release automation, and first-party plugin helpers.
+
+### Discord.py parity
+
+- Added `Cog` and `GroupCog` classes for class-based command/listener organization.
+- Added `Bot.add_cog()`, `Bot.get_cog()`, `Bot.remove_cog()`, and `Bot.cogs`.
+- Added `Bot.load_extension()`, `Bot.unload_extension()`, and `Bot.reload_extension()` for module-based feature loading.
+- Added `bot.load_builtin_plugins()` as the obvious bundled plugin entry point.
+- Added cog inspection helpers for commands, listeners, and app commands.
+- Added `Cog.listener()` for discord.py-style listener registration.
+- Added `Bot.listen(...)` and `Context` aliases for the familiar command flow.
+
+### Release automation
+
+- Added a tag-triggered GitHub release workflow in `.github/workflows/release.yml`.
+- Added a local `scripts/release.ps1` helper for building and publishing a tagged release with the checked-in notes body.
+- Kept `docs/release-notes.md` as the canonical release body so the workflow and manual flow stay in sync.
+
+### discord.py parity
+
+- Added `Bot.listen(...)` as a `discord.py`-style event decorator.
+- Added `Context.send(...)`, `Context.reply(...)`, `Context.author`, `Context.me`, and `Context.fetch_message(...)`.
+- Added `GuildPlugin` and `JsonConfigPlugin` to reduce boilerplate in first-party plugin authorship.
+
+### First-party plugins
+
+- Added `AnnouncementsPlugin` for a configured announcement channel with an `/announce` command.
+- Added `AutoReplyPlugin` for trigger-response automation with per-guild JSON storage.
+
+### Plugin integration helpers
+
+- Added `IntegrationPlugin` for cross-plugin lookup and endpoint reuse.
+- Added `@bot.endpoint(...)` for shared integration points that other plugins can call by name.
+
+### Handoff
+
+- Updated `model.md` and `docs/release-notes.md` so Cloud Code can pick up the current state quickly.
+- Preserved the existing release history below this section.
+
 ## [2.8] — 2026-04-18
 
 Fluent UI builders, plugin hot-reload, and command aliases.

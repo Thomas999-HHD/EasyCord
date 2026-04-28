@@ -4,11 +4,33 @@
 
 ## What it is
 
-Decorator-first Python framework for Discord bots on `discord.py>=2.0`. Removes boilerplate: decorators register slash commands, middleware wraps every invocation, plugins group commands/events into classes.
+EasyCord Discord Framework is a beginner-friendly Python framework for Discord bots on `discord.py>=2.0`. Removes boilerplate: decorators register slash commands, middleware wraps every invocation, plugins group commands/events into classes.
 
-Current roadmap state: database auto-configuration, bundled plugins, embed-card helpers, and a lightweight localization manager are now in place. `Context.t(...)` can resolve translated strings through `Bot.localization` / `Bot.i18n`.
+Current roadmap state: release automation, database auto-configuration, bundled plugins, embed-card helpers, a lightweight localization manager, and the new cog/extension parity layer are now in place. `Context.t(...)` can resolve translated strings through `Bot.localization` / `Bot.i18n`.
 
-Release notes now emphasize the practical uses of each feature, especially `Bot.db`, `bot.load_builtin_plugins()`, `EmbedCard`, and `LocalizationManager`, so they can guide the next implementation pass instead of only recording history.
+Release notes now emphasize the practical uses of each feature, especially `Bot.db`, `bot.load_builtin_plugins()`, `EmbedCard`, `LocalizationManager`, `IntegrationPlugin`, `GuildPlugin`, `JsonConfigPlugin`, `Cog`, `GroupCog`, and extension loading, so they can guide the next implementation pass instead of only recording history.
+
+Recent QoL additions:
+- `Context.send(...)` and `Context.reply(...)` now mirror `Context.respond(...)`
+- `Context.author` and `Context.me` mirror common `discord.py` naming
+- `Context.bot` mirrors `interaction.client`
+- `Context.fetch_message(message_id)` fetches a single channel message
+- `Bot.listen(...)` provides a discord.py-style event decorator, including bare `@bot.listen` inference
+- `GuildPlugin` and `JsonConfigPlugin` now provide lighter-weight authoring helpers for first-party plugins
+- `IntegrationPlugin` now provides cross-plugin and endpoint lookup helpers
+- `Bot.endpoint(...)` and `@endpoint` now support both named and bare decorator forms for reusable plugin endpoints
+- `AnnouncementsPlugin` and `AutoReplyPlugin` were added as reference plugins that use the new helper classes
+- `.github/workflows/release.yml` now publishes tagged releases automatically
+- `scripts/release.ps1` mirrors the release workflow for local publishing
+- `Cog`, `GroupCog`, and extension loading now cover the biggest discord.py parity gaps
+- Full test suite is green again: `472 passed`
+
+## Handoff notes
+
+- The current code version is `4.1` in `pyproject.toml`.
+- `CHANGELOG.md` now contains the `4.1` release entry.
+- `docs/release-notes.md` is the body source the release workflow uses for GitHub Releases.
+- Cloud Code should start by reading `model.md`, `CHANGELOG.md`, `docs/release-notes.md`, and `docs/api.md`.
 
 ## Layout
 
@@ -30,13 +52,16 @@ Release notes now emphasize the practical uses of each feature, especially `Bot.
 | `easycord/plugins/levels.py` | `LevelsPlugin` — XP, leveling, ranks |
 | `easycord/plugins/polls.py` | `PollsPlugin` |
 | `easycord/plugins/welcome.py` | `WelcomePlugin` |
+| `.github/workflows/release.yml` | tag-triggered GitHub release workflow |
+| `scripts/release.ps1` | local release helper for build + publish |
+| `easycord/cog.py` | `Cog` / `GroupCog` parity layer and listener helpers |
 | `server_commands/` | example bot plugins — add new bot features here |
 | `tests/` | pytest suite (`asyncio_mode = "auto"`) |
 | `docs/api.md` | full API reference |
 
 ## Public API (`from easycord import ...`)
 
-`Bot`, `Context`, `Plugin`, `SlashGroup`, `Composer`, `slash`, `on`, `task`, `ServerConfig`, `ServerConfigStore`, `AuditLog`
+`Bot`, `Context`, `Plugin`, `Cog`, `GroupCog`, `SlashGroup`, `Composer`, `slash`, `on`, `task`, `ServerConfig`, `ServerConfigStore`, `AuditLog`
 
 ## Key mechanics
 
@@ -49,6 +74,10 @@ Release notes now emphasize the practical uses of each feature, especially `Bot.
 **Plugins** — `add_plugin()` and `add_plugins()` scan attributes for `_is_slash` / `_is_event` / `_is_task` tags. `on_load()` awaited in `setup_hook` if pre-run; `create_task` if bot already ready.
 
 **ServerConfigStore** — atomic writes (write-to-temp + rename), per-guild `asyncio.Lock`.
+
+**Release automation** — `CHANGELOG.md` tracks the release summary, `docs/release-notes.md` feeds the GitHub Release body, and `.github/workflows/release.yml` publishes tagged releases with the built artifacts.
+
+**Discord.py parity** — `Cog`, `GroupCog`, `load_extension()`, `unload_extension()`, `reload_extension()`, `add_cog()`, `get_cog()`, and cog inspection helpers are now the main class-based compatibility layer.
 
 ## Extension conventions
 

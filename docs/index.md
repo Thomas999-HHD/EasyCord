@@ -1,6 +1,6 @@
 # Documentation
 
-This framework is a decorator-first toolkit for building Discord bots on top of `discord.py>=2.0`.
+EasyCord Discord Framework is a beginner-friendly toolkit for building Discord bots on top of `discord.py>=2.0`.
 
 The documentation is organized around one beginner-friendly path: install the package, make one command, then grow into plugins and shared helpers.
 

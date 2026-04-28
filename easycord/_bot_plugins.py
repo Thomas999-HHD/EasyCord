@@ -1,10 +1,12 @@
-"""Plugin lifecycle, task management, and shared method-scanner."""
+"""Plugin lifecycle, cogs, extensions, task management, and shared method-scanner."""
 from __future__ import annotations
 
 import asyncio
+import importlib
 import inspect
 import logging
 from typing import Callable
+from types import ModuleType
 
 import discord
 
@@ -15,6 +17,26 @@ logger = logging.getLogger("easycord")
 
 class _PluginsMixin:
     """Mixin: plugin add/remove, background tasks, and method scanning."""
+
+    def _track_extension_addition(self, item: Plugin) -> None:
+        current = getattr(self, "_active_extension", None)
+        if current is not None:
+            self._extension_additions.setdefault(current, []).append(item)
+
+    def _track_extension_endpoint(self, name: str) -> None:
+        current = getattr(self, "_active_extension", None)
+        if current is not None:
+            self._extension_endpoints.setdefault(current, []).append(name)
+
+    @property
+    def extensions(self) -> dict[str, ModuleType]:
+        """Mapping of loaded extension names to imported modules."""
+        return dict(self._extensions)
+
+    @property
+    def endpoints(self) -> dict[str, dict[str, Callable]]:
+        """Mapping of endpoint names to registered callables and metadata."""
+        return dict(self._endpoints)
 
     # ── Shared scanner ────────────────────────────────────────
 
@@ -81,6 +103,12 @@ class _PluginsMixin:
                 if getattr(method, "_modal_scoped", True):
                     custom_id = plugin.id(custom_id)
                 self._register_modal_handler(custom_id, method, source_plugin=type(plugin).__name__)
+            if getattr(method, "_is_endpoint", False):
+                self.register_endpoint(
+                    method._endpoint_name,
+                    method,
+                    source_plugin=type(plugin).__name__,
+                )
 
     # ── Plugins ───────────────────────────────────────────────
 
@@ -101,6 +129,7 @@ class _PluginsMixin:
             )
         plugin._bot = self
         self._plugins.append(plugin)
+        self._track_extension_addition(plugin)
         self._scan_methods(plugin)
         if self.is_ready():
             asyncio.create_task(plugin.on_load())
@@ -110,6 +139,130 @@ class _PluginsMixin:
         """Add several plugins in one call."""
         for plugin in plugins:
             self.add_plugin(plugin)
+
+    def load_builtin_plugins(self) -> None:
+        """Load the bundled first-party plugin set once."""
+        if getattr(self, "_builtin_plugins_loaded", False):
+            return
+
+        from .plugins import (
+            AnnouncementsPlugin,
+            AutoReplyPlugin,
+            LevelsPlugin,
+            PollsPlugin,
+            TagsPlugin,
+            WelcomePlugin,
+        )
+
+        self.add_plugins(
+            WelcomePlugin(),
+            LevelsPlugin(),
+            PollsPlugin(),
+            TagsPlugin(),
+            AnnouncementsPlugin(),
+            AutoReplyPlugin(),
+        )
+        self._builtin_plugins_loaded = True
+
+    def add_cog(self, cog: "Cog") -> None:  # type: ignore[name-defined]
+        """Register a Cog-like object using the same plugin plumbing."""
+        from .cog import Cog
+
+        if not isinstance(cog, Cog):
+            raise TypeError(
+                f"expected a Cog instance, got {type(cog).__name__!r}"
+            )
+        self.add_plugin(cog)
+
+    def get_cog(self, name: str) -> "Cog | None":  # type: ignore[name-defined]
+        """Return the first loaded cog whose class name or configured name matches."""
+        from .cog import Cog
+
+        for plugin in self._plugins:
+            if isinstance(plugin, Cog) and (
+                type(plugin).__name__ == name or getattr(plugin, "name", None) == name
+            ):
+                return plugin
+        return None
+
+    @property
+    def cogs(self) -> dict[str, "Cog"]:  # type: ignore[name-defined]
+        """Mapping of loaded cog names to instances."""
+        from .cog import Cog
+
+        return {
+            getattr(cog, "qualified_name", type(cog).__name__): cog
+            for cog in self._plugins
+            if isinstance(cog, Cog)
+        }
+
+    async def remove_cog(self, cog: str | "Cog") -> None:  # type: ignore[name-defined]
+        """Remove a loaded cog by name or instance."""
+        from .cog import Cog
+
+        if isinstance(cog, str):
+            target = self.get_cog(cog)
+            if target is None:
+                raise ValueError(f"No cog named {cog!r} is loaded")
+            await self.remove_plugin(target)
+            return
+        if not isinstance(cog, Cog):
+            raise TypeError(f"expected a Cog instance or cog name, got {type(cog).__name__!r}")
+        await self.remove_plugin(cog)
+
+    def register_endpoint(
+        self,
+        name: str,
+        func: Callable,
+        *,
+        source_plugin: str | None = None,
+    ) -> None:
+        """Register a reusable named endpoint callable."""
+        if not callable(func):
+            raise TypeError(
+                f"endpoint must be callable, got {type(func).__name__!r}"
+            )
+        if name in self._endpoints:
+            existing = self._endpoints[name]
+            raise ValueError(
+                f"Endpoint {name!r} already registered by "
+                f"{existing.get('plugin') or 'Bot'}"
+            )
+        self._endpoints[name] = {"func": func, "plugin": source_plugin}
+        self._track_extension_endpoint(name)
+
+    def endpoint(self, name: str | Callable | None = None) -> Callable:
+        """Decorator that registers a reusable named endpoint."""
+        if callable(name):
+            func = name
+            self.register_endpoint(func.__name__, func)
+            return func
+
+        def decorator(func: Callable) -> Callable:
+            self.register_endpoint(name or func.__name__, func)
+            return func
+
+        return decorator
+
+    def get_endpoint(self, name: str) -> Callable | None:
+        """Return a named endpoint callable if one is registered."""
+        entry = self._endpoints.get(name)
+        return entry["func"] if entry else None
+
+    def require_endpoint(self, name: str) -> Callable:
+        """Return a named endpoint or raise if it is missing."""
+        endpoint = self.get_endpoint(name)
+        if endpoint is None:
+            raise ValueError(f"No endpoint named {name!r} is registered")
+        return endpoint
+
+    async def call_endpoint(self, name: str, /, *args, **kwargs):
+        """Call a registered endpoint and await the result if needed."""
+        endpoint = self.require_endpoint(name)
+        result = endpoint(*args, **kwargs)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     async def remove_plugin(self, plugin: Plugin) -> None:
         """Remove a plugin, deregistering its commands and event handlers.
@@ -164,6 +317,8 @@ class _PluginsMixin:
                 if getattr(method, "_modal_scoped", True):
                     custom_id = plugin.id(custom_id)
                 self.registry.modals.pop(custom_id, None)
+            if getattr(method, "_is_endpoint", False):
+                self._endpoints.pop(method._endpoint_name, None)
         for handle in self._task_handles.pop(id(plugin), []):
             handle.cancel()
             try:
@@ -171,6 +326,57 @@ class _PluginsMixin:
             except asyncio.CancelledError:
                 pass
         await plugin.on_unload()
+
+    def _pop_extension_items(self, name: str) -> list[Plugin]:
+        return list(self._extension_additions.pop(name, []))
+
+    async def load_extension(self, name: str) -> ModuleType:
+        """Import an extension module and run its async ``setup(bot)`` hook."""
+        if name in self._extensions:
+            raise ValueError(f"Extension {name!r} is already loaded")
+        module = importlib.import_module(name)
+        setup = getattr(module, "setup", None)
+        if setup is None:
+            raise ValueError(f"Extension {name!r} does not define setup(bot)")
+
+        self._active_extension = name
+        self._extension_additions.setdefault(name, [])
+        try:
+            result = setup(self)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            await self._unload_extension_items(name)
+            raise
+        finally:
+            self._active_extension = None
+
+        self._extensions[name] = module
+        return module
+
+    async def unload_extension(self, name: str) -> None:
+        """Unload an extension and remove anything it registered through bot helpers."""
+        module = self._extensions.pop(name, None)
+        if module is None:
+            raise ValueError(f"Extension {name!r} is not loaded")
+        await self._unload_extension_items(name)
+        teardown = getattr(module, "teardown", None)
+        if teardown is not None:
+            result = teardown(self)
+            if inspect.isawaitable(result):
+                await result
+
+    async def reload_extension(self, name: str) -> ModuleType:
+        """Reload an extension in place."""
+        await self.unload_extension(name)
+        return await self.load_extension(name)
+
+    async def _unload_extension_items(self, name: str) -> None:
+        for item in reversed(self._pop_extension_items(name)):
+            if item in self._plugins:
+                await self.remove_plugin(item)
+        for endpoint_name in self._extension_endpoints.pop(name, []):
+            self._endpoints.pop(endpoint_name, None)
 
     async def reload_plugin(self, name: str) -> None:
         """Reload a plugin by class name — calls ``on_unload`` then ``on_load`` in-place.
