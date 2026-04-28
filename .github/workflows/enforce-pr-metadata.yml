@@ -1,0 +1,72 @@
+name: enforce-pr-metadata
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  enforce-pr-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure release labels exist and normalize PR label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.pull_request.number;
+            const releaseLabels = ["release:patch", "release:minor", "release:major"];
+            const palette = {
+              "release:patch": "1d76db",
+              "release:minor": "0e8a16",
+              "release:major": "b60205",
+            };
+
+            for (const name of releaseLabels) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name,
+                    color: palette[name],
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            const { data: issue } = await github.rest.issues.get({
+              owner,
+              repo,
+              issue_number,
+            });
+
+            const labels = (issue.labels || []).map((l) => typeof l === "string" ? l : l.name);
+            const matched = releaseLabels.filter((name) => labels.includes(name));
+
+            if (matched.length === 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: ["release:patch"],
+              });
+              core.info("Added default release:patch label.");
+              return;
+            }
+
+            if (matched.length > 1) {
+              const keep = matched[0];
+              for (const name of matched.slice(1)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              }
+              core.info(`Removed extra release labels; kept ${keep}.`);
+            }
