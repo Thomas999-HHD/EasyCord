@@ -1,35 +1,41 @@
-# v4.3.0 - EasyCord Helper Utilities and Release Cleanup
+# v4.3.0 - AI, Admin Helpers, Plugins, and Package References
 
 **Release Date:** 2026-04-29
 
 ## Summary
 
-v4.3.0 re-cuts the current EasyCord package line with the helper utilities and runtime fixes now present in `easycord/`, plus release-governance cleanup for future PRs.
+v4.3.0 refreshes the EasyCord package line around the framework features now available in `easycord/`: unified AI calls, context helpers, UI builders, plugin improvements, localization fixes, and updated package download references.
 
-## What's New
+## Added
 
-- Added `Paginator` for interactive paged embeds and line-based command output.
-- Added `EasyEmbed.warning()` alongside the success, error, and info status embeds.
-- Added `SecurityManager` and `FrameworkManager` for one-call secure bot setup.
-- Added `Composer.secure_defaults()` and `Composer.convenience_framework()` for lower-boilerplate bot construction.
-- Added an automatic release-label workflow for pull requests.
-- Updated PR governance so pull requests receive a default release label instead of failing immediately.
+- Unified AI helper: `ctx.ai()` centralizes AI calls across plugins, supports shared or one-off providers, supports model overrides for providers that expose a model setting, and works with localized AI response flows.
+- Composer and bot setup helpers: `Composer` exposes fluent setup methods for intents, localization, plugins, groups, built-in plugins, secure defaults, and convenience framework presets.
+- Invitation and scheduled event helpers: `Context` includes `create_invite()`, `get_invites()`, `revoke_invite()`, `create_event()`, `get_events()`, and `delete_event()`.
+- Invite tracking: `InviteTrackerPlugin` tracks invite usage, stores counts, and exposes invite stats and leaderboard commands.
+- Moderation utilities: `Context` includes `kick()`, `ban()`, `timeout()`, `unban()`, `add_role()`, `remove_role()`, `purge()`, `send_file()`, thread helpers, and voice-channel helpers.
+- UI builders: `EmbedBuilder`, `ButtonRowBuilder`, `SelectMenuBuilder`, and `ModalBuilder` provide chainable APIs for embeds and components.
+- Tags and Levels plugins: `TagsPlugin` supports create/edit/delete/list tag workflows with JSON persistence, and `LevelsPlugin` provides XP, levels, named ranks, and role rewards.
+- Package UX helpers: `Paginator`, `EasyEmbed.warning()`, `SecurityManager`, `FrameworkManager`, `Composer.secure_defaults()`, and `Composer.convenience_framework()` reduce boilerplate for common bot builds.
 
-## Bug Fixes
+## Fixed/Improved
 
+- Localization fallback order now tries the requested locale, configured default locale, language fallback, and then the generic default catalog.
+- Type hints were refined for translation mappings and public helper APIs.
+- Middleware now includes `boost_only()` and `has_permission()` helpers, plus improved logging and rate-limit cleanup behavior.
+- Plugin reload and error handling are available through `Bot.reload_plugin()` and `Bot.on_error()`.
+- Context-menu support is available through `user_command` and `message_command` decorators.
 - Recreates stale cached webhooks once and retries the send instead of failing permanently.
 - Validates emoji image paths and rejects files larger than Discord's 256 KiB custom emoji limit before upload.
 - Makes SQLite payload decoding tolerate corrupt, invalid, or non-dict JSON by returning an empty mapping.
 - Prunes empty middleware rate-limit buckets so long-running bots do not keep dead user entries.
 - Runs OpenClaude limiter cleanup before prompt-length rejection so rejected oversized prompts still allow stale bucket cleanup.
 - Preserves the `LevelsPlugin` bot-message guard fix already present on `main`.
+- Release metadata, package install commands, and download references now point at the `v4.3` tag/release.
 
 ## Release Notes
 
-- `v4.2.0` was already published from PR #31.
-- `v4.3.0` keeps the same package code line and publishes clearer notes for the actual `easycord/` changes, while adding safe release-label automation.
-- Package install and download references now point at the `v4.3` tag/release.
-- PR #33 contained additional release-label governance work, but its branch was behind current `main`; 4.3 includes the safe governance pieces without reverting current workflows.
+- Added automatic release-label handling and PR governance cleanup for future release planning.
+- `v4.3.0` publishes clearer notes for the actual `easycord/` package features and fixes.
 
 ## Testing
 
