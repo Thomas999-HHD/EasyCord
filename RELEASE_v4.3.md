@@ -28,6 +28,7 @@ v4.3.0 re-cuts the current EasyCord package line with the helper utilities and r
 
 - `v4.2.0` was already published from PR #31.
 - `v4.3.0` keeps the same package code line and publishes clearer notes for the actual `easycord/` changes, while adding safe release-label automation.
+- Package install and download references now point at the `v4.3` tag/release.
 - PR #33 contained additional release-label governance work, but its branch was behind current `main`; 4.3 includes the safe governance pieces without reverting current workflows.
 
 ## Testing
