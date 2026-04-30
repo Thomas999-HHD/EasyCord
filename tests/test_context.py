@@ -144,6 +144,29 @@ async def test_ai_uses_configured_bot_provider(ctx, interaction):
     provider.query.assert_called_once_with("hello")
 
 
+async def test_ai_records_conversation_memory(ctx, interaction):
+    from easycord.conversation_memory import ConversationMemory
+
+    provider = MagicMock()
+    provider.query = AsyncMock(return_value="AI response")
+    interaction.client.ai_provider = provider
+    interaction.client.conversation_memory = ConversationMemory()
+    interaction.user.id = 123
+    interaction.guild.id = 456
+
+    assert await ctx.ai("hello") == "AI response"
+
+    turns = await ctx.conversation_history()
+    assert [turn.role for turn in turns] == ["user", "assistant"]
+    assert [turn.content for turn in turns] == ["hello", "AI response"]
+
+
+async def test_conversation_history_returns_empty_without_memory(ctx, interaction):
+    interaction.client.conversation_memory = None
+
+    assert await ctx.conversation_history() == []
+
+
 async def test_ai_accepts_one_off_provider(ctx):
     provider = MagicMock()
     provider.query = AsyncMock(return_value="One-off response")
