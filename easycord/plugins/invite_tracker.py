@@ -111,11 +111,11 @@ class InviteTrackerPlugin(Plugin):
         await self._refresh_invite_cache(guild_id)
         new_cache = self._invite_cache.get(guild_id, {})
 
-        # Find which invite was used (decreased uses)
+        # Find which invite was used (Discord increments uses after a join).
         used_invite = None
         for code, new_uses in new_cache.items():
             old_uses = old_cache.get(code, new_uses)
-            if new_uses < old_uses:
+            if new_uses > old_uses:
                 used_invite = code
                 break
 
