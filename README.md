@@ -31,9 +31,10 @@ For the shortest path to a working bot, open [`docs/getting-started.md`](docs/ge
 
 ## New in v4.3
 
+- Current package line re-cut with the EasyCord helper utilities from `easycord/`
+- Runtime fixes for webhook retries, emoji upload validation, SQLite decoding, and limiter cleanup
 - Automatic release-label handling for pull requests
 - PR governance now creates missing release labels and normalizes duplicates
-- Release line carries forward the latest helper utilities and runtime bug fixes
 
 ## New in v4.2
 
