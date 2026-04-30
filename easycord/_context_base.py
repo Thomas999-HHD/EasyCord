@@ -5,6 +5,7 @@ import asyncio
 
 import discord
 
+from .conversation_memory import ConversationTurn
 from .i18n import LocalizationManager
 
 
@@ -144,10 +145,19 @@ class BaseContext:
         if provider is None:
             raise RuntimeError("No AI provider configured. Pass provider=... or set Bot(ai_provider=...).")
 
+        memory = getattr(self.interaction.client, "conversation_memory", None)
+        guild_id = self.guild.id if self.guild else None
+        user_id = getattr(self.user, "id", None)
+        if memory is not None and user_id is not None:
+            memory.add_user_message(user_id, prompt, guild_id)
+
         old_model = getattr(provider, "_model", None)
         should_restore = model is not None and hasattr(provider, "_model")
         if not should_restore:
-            return await provider.query(prompt)
+            response = await provider.query(prompt)
+            if memory is not None and user_id is not None:
+                memory.add_assistant_message(user_id, response, guild_id)
+            return response
 
         lock = getattr(provider, "_easycord_model_lock", None)
         if lock is None:
@@ -156,9 +166,31 @@ class BaseContext:
         async with lock:
             provider._model = model
             try:
-                return await provider.query(prompt)
+                response = await provider.query(prompt)
+                if memory is not None and user_id is not None:
+                    memory.add_assistant_message(user_id, response, guild_id)
+                return response
             finally:
                 provider._model = old_model
+
+    async def conversation_history(self, limit: int | None = None) -> list[ConversationTurn]:
+        """Return recent conversation turns for the current user.
+
+        If conversation memory is disabled or no user is available, an empty
+        list is returned.
+        """
+        memory = getattr(self.interaction.client, "conversation_memory", None)
+        user_id = getattr(self.user, "id", None)
+        if memory is None or user_id is None:
+            return []
+        guild_id = self.guild.id if self.guild else None
+        conversation = memory.get_or_create(user_id, guild_id)
+        turns = list(conversation.turns)
+        if limit is not None:
+            if limit <= 0:
+                return []
+            turns = turns[-limit:]
+        return turns
 
     async def send_embed(
         self,
