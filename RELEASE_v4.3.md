@@ -9,6 +9,10 @@ v4.3.0 refreshes the EasyCord package line around the framework features now ava
 ## Added
 
 - Unified AI helper: `ctx.ai()` centralizes AI calls across plugins, supports shared or one-off providers, supports model overrides for providers that expose a model setting, and works with localized AI response flows.
+- Conversation memory integration: `Bot(enable_conversation_memory=True)` enables in-memory conversation storage, and `ctx.ai()` records user prompts and assistant responses when memory is active.
+- Conversation history API: `ctx.conversation_history(limit)` returns recent `ConversationTurn` objects for the current user, or an empty list when conversation memory is unavailable.
+- Structured conversation classes: `ConversationTurn`, `Conversation`, and `ConversationMemory` provide in-memory history storage for context-aware AI workflows.
+- Orchestrator fallback support: `FallbackStrategy` tries providers in sequence when a provider fails or produces no final text.
 - Composer and bot setup helpers: `Composer` exposes fluent setup methods for intents, localization, plugins, groups, built-in plugins, secure defaults, and convenience framework presets.
 - Invitation and scheduled event helpers: `Context` includes `create_invite()`, `get_invites()`, `revoke_invite()`, `create_event()`, `get_events()`, and `delete_event()`.
 - Invite tracking: `InviteTrackerPlugin` tracks invite usage, stores counts, and exposes invite stats and leaderboard commands.
@@ -20,6 +24,8 @@ v4.3.0 refreshes the EasyCord package line around the framework features now ava
 ## Fixed/Improved
 
 - Localization fallback order now tries the requested locale, configured default locale, language fallback, and then the generic default catalog.
+- Fixed the `Bot.__init__` conversation-memory setup path by adding an explicit keyword argument without breaking existing keyword-only constructor behavior.
+- Levels XP awarding now respects `cooldown_seconds` during message-based awards so rapid message spam cannot generate unlimited XP.
 - Type hints were refined for translation mappings and public helper APIs.
 - Middleware now includes `boost_only()` and `has_permission()` helpers, plus improved logging and rate-limit cleanup behavior.
 - Plugin reload and error handling are available through `Bot.reload_plugin()` and `Bot.on_error()`.
@@ -36,6 +42,7 @@ v4.3.0 refreshes the EasyCord package line around the framework features now ava
 
 - Added automatic release-label handling and PR governance cleanup for future release planning.
 - `v4.3.0` publishes clearer notes for the actual `easycord/` package features and fixes.
+- Added focused tests for `Bot(enable_conversation_memory=True)`, `ctx.ai()` memory logging, and `ctx.conversation_history()`.
 
 ## Testing
 
