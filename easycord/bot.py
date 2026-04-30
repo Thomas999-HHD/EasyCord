@@ -12,6 +12,7 @@ from discord import app_commands
 from .builtin_plugins import build_builtin_plugins
 from .database import DatabaseConfig, EasyCordDatabase, MemoryDatabase, SQLiteDatabase
 from .i18n import LocalizationManager
+from .conversation_memory import ConversationMemory
 from .middleware import MiddlewareFn
 from .plugin import Plugin
 from ._bot_commands import _CommandsMixin
@@ -70,6 +71,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         translations: dict | None = None,
         auto_translator: Callable[[str, str, str], str | None] | None = None,
         ai_provider=None,
+        enable_conversation_memory: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -82,6 +84,9 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
         self.ai_provider = ai_provider
+        self.conversation_memory = (
+            ConversationMemory() if enable_conversation_memory else None
+        )
         self.ai_tools: dict[str, dict] = {}
         self.tool_registry = ToolRegistry()
         try:
