@@ -12,7 +12,8 @@ Describe what changed and why.
 
 - [ ] Tests added or updated for behavior changes
 - [ ] `pytest` passes locally
-- [ ] `ruff check .` passes locally
+- [ ] `ruff check easycord tests --select E9,F63,F7,F82` passes locally (required)
+- [ ] `ruff check .` passes locally (advisory; auto-fix with `ruff check --fix`)
 - [ ] Docs updated (README/API/docstrings) for public API changes
 - [ ] No local/debug/temp files included
 
