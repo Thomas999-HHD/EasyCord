@@ -1,7 +1,13 @@
 import pytest
 from unittest.mock import patch
 
-from easycord.i18n import LocalizationManager, _normalize_locale, detect_os_locale
+from easycord.i18n import (
+    LocalizationManager,
+    DiagnosticMode,
+    LocalizationDiagnostics,
+    _normalize_locale,
+    detect_os_locale,
+)
 
 
 def test_register_and_get_translation():
@@ -174,3 +180,105 @@ def test_auto_detect_system_locale_none_when_disabled():
             translations={"en-US": {}},
         )
         assert i18n._system_locale is None
+
+
+# Missing-key diagnostics tests
+
+def test_diagnostics_silent_mode_no_warnings(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="easycord.i18n"):
+        i18n = LocalizationManager(
+            default_locale="en-US",
+            diagnostic_mode=DiagnosticMode.SILENT,
+            translations={"en-US": {}},
+        )
+        result = i18n.get("missing.key", locale="es-ES")
+        assert result == "missing.key"
+        assert len(caplog.records) == 0
+
+
+def test_diagnostics_warn_mode_logs_missing_key(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="easycord.i18n"):
+        i18n = LocalizationManager(
+            default_locale="en-US",
+            diagnostic_mode=DiagnosticMode.WARN,
+            translations={"en-US": {}},
+        )
+        result = i18n.get("missing.key", locale="es-ES")
+        assert result == "missing.key"
+        assert any("missing.key" in record.message for record in caplog.records)
+
+
+def test_diagnostics_warn_mode_deduplicates_warnings(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="easycord.i18n"):
+        i18n = LocalizationManager(
+            default_locale="en-US",
+            diagnostic_mode=DiagnosticMode.WARN,
+            translations={"en-US": {}},
+        )
+        i18n.get("missing.key", locale="es-ES")
+        caplog.clear()
+        i18n.get("missing.key", locale="es-ES")
+        assert len(caplog.records) == 0
+
+
+def test_diagnostics_strict_mode_raises_on_missing_key():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        diagnostic_mode=DiagnosticMode.STRICT,
+        translations={"en-US": {}},
+    )
+    with pytest.raises(KeyError):
+        i18n.get("missing.key", locale="es-ES")
+
+
+def test_diagnostics_warn_fallback_to_default_locale(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="easycord.i18n"):
+        i18n = LocalizationManager(
+            default_locale="en-US",
+            diagnostic_mode=DiagnosticMode.WARN,
+            translations={"en-US": {"hello": "Hello"}},
+        )
+        result = i18n.get("hello", locale="es-ES")
+        assert result == "Hello"
+        assert any("fallback" in record.message for record in caplog.records)
+
+
+def test_diagnostics_summary():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        diagnostic_mode=DiagnosticMode.WARN,
+        translations={"en-US": {}},
+    )
+    i18n.get("missing1", locale="es-ES")
+    i18n.get("missing2", locale="es-ES")
+    i18n.get("missing1", locale="es-ES")  # Deduplicated, not counted
+
+    summary = i18n.diagnostics.missing_keys_summary()
+    assert summary["total_missing"] == 2
+    assert summary["unique_missing"] == 2
+
+
+def test_diagnostics_reset():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        diagnostic_mode=DiagnosticMode.WARN,
+        translations={"en-US": {}},
+    )
+    i18n.get("missing", locale="es-ES")
+    summary1 = i18n.diagnostics.missing_keys_summary()
+
+    i18n.diagnostics.reset()
+    summary2 = i18n.diagnostics.missing_keys_summary()
+
+    assert summary1["total_missing"] == 1
+    assert summary2["total_missing"] == 0
+
+
+def test_diagnostic_mode_enum_values():
+    assert DiagnosticMode.SILENT.value == "silent"
+    assert DiagnosticMode.WARN.value == "warn"
+    assert DiagnosticMode.STRICT.value == "strict"
