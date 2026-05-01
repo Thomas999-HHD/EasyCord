@@ -119,13 +119,13 @@ class LocalizationManager:
         *,
         default: str | None,
     ) -> tuple[str, str] | None:
-        if default is not None:
-            return self.default_locale, default
-
         for candidate in self.resolve_chain(self.default_locale):
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
                 return candidate, catalog[key]
+
+        if default is not None:
+            return self.default_locale, default
 
         for candidate in sorted(self._catalogs):
             catalog = self._catalogs[candidate]
