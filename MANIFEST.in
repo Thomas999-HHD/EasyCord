@@ -8,6 +8,7 @@ recursive-include docs *.md
 recursive-include examples *.py
 exclude .claude
 exclude .worktrees
+exclude .coderabbit.yaml
 exclude .git
 exclude tests
 exclude .github
