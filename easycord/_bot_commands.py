@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import time
-from typing import Callable, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 import discord
 from discord import app_commands
@@ -12,6 +12,9 @@ import logging
 
 from .context import Context
 from .middleware import build_chain
+
+if TYPE_CHECKING:
+    from .group import SlashGroup
 
 logger = logging.getLogger("easycord")
 
@@ -255,7 +258,7 @@ class _CommandsMixin:
 
     # ── Subcommand groups ──────────────────────────────────────
 
-    def add_group(self, group: "SlashGroup") -> None:  # type: ignore[name-defined]
+    def add_group(self, group: "SlashGroup") -> None:
         """Register a SlashGroup as a discord subcommand namespace.
 
         Example::
@@ -294,7 +297,7 @@ class _CommandsMixin:
             asyncio.create_task(group.on_load())
             self._start_plugin_tasks(group)
 
-    def add_groups(self, *groups: "SlashGroup") -> None:  # type: ignore[name-defined]
+    def add_groups(self, *groups: "SlashGroup") -> None:
         """Register several SlashGroup namespaces in one call."""
         for group in groups:
             self.add_group(group)
