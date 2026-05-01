@@ -33,7 +33,7 @@ jobs:
         run: |
           BODY=$(cat <<'EOF'
           ${{ github.event.comment.body }}
-          EOF
+EOF
           )
 
           # Supported app handles and actions (auto-config router)

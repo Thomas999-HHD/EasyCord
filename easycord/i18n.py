@@ -124,17 +124,17 @@ class LocalizationManager:
         """Resolve source locale/text used for auto-translation.
 
         Preference order:
-        1) caller-supplied ``default`` text
-        2) key from the default locale chain
+        1) key from the default locale chain (canonical)
+        2) caller-supplied ``default`` text
         3) first key found in any registered locale (stable sorted order)
         """
-        if default is not None:
-            return self.default_locale, default
-
         for candidate in self.resolve_chain(self.default_locale):
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
                 return candidate, catalog[key]
+
+        if default is not None:
+            return self.default_locale, default
 
         for candidate in sorted(self._catalogs):
             catalog = self._catalogs[candidate]
