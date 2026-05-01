@@ -34,6 +34,7 @@ class _CommandsMixin:
         autocomplete: dict[str, Callable] | None = None,
         choices: dict[str, list] | None = None,
         aliases: list[str] | None = None,
+        rate_limit: tuple[int, int] | None = None,
         nsfw: bool = False,
         allowed_contexts: discord.AppCommandContext | None = None,
         allowed_installs: discord.AppInstallationType | None = None,
@@ -65,6 +66,7 @@ class _CommandsMixin:
 
         def decorator(func: Callable) -> Callable:
             primary = name or func.__name__
+            seen_names = {primary}
             self._register_slash(
                 func,
                 name=primary,
@@ -74,6 +76,7 @@ class _CommandsMixin:
                 ephemeral=ephemeral,
                 permissions=permissions,
                 cooldown=cooldown,
+                rate_limit=rate_limit,
                 autocomplete=autocomplete,
                 choices=choices,
                 nsfw=nsfw,
@@ -81,6 +84,9 @@ class _CommandsMixin:
                 allowed_installs=allowed_installs,
             )
             for alias in (aliases or []):
+                if alias in seen_names:
+                    continue
+                seen_names.add(alias)
                 self._register_slash(
                     func,
                     name=alias,
@@ -90,6 +96,7 @@ class _CommandsMixin:
                     ephemeral=ephemeral,
                     permissions=permissions,
                     cooldown=cooldown,
+                    rate_limit=rate_limit,
                     autocomplete=autocomplete,
                     choices=choices,
                     nsfw=nsfw,
@@ -108,11 +115,14 @@ class _CommandsMixin:
         ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
+        rate_limit: tuple[int, int] | None = None,
     ) -> Callable:
         """Build a discord.py-compatible callback with guild, permission, and cooldown guards."""
         sig = inspect.signature(func)
         user_params = list(sig.parameters.values())[1:]
         _cooldown_last_used: dict[int, float] = {}
+        _rate_limit_last_used: dict[int, list[float]] = {}
+        normalized_rate_limit = self._validate_rate_limit(rate_limit)
 
         async def callback(interaction: discord.Interaction, **kwargs) -> None:
             ctx = Context(interaction)
@@ -177,8 +187,29 @@ class _CommandsMixin:
                             ephemeral=True,
                         )
                         return
-                    _cooldown_last_used[uid] = now
+                if normalized_rate_limit is not None:
+                    limit, window = normalized_rate_limit
+                    uid = ctx.user.id
+                    now = time.monotonic()
+                    history = _rate_limit_last_used.setdefault(uid, [])
+                    cutoff = now - window
+                    history[:] = [stamp for stamp in history if stamp > cutoff]
+                    if len(history) >= limit:
+                        wait = window - (now - history[0])
+                        await ctx.respond(
+                            ctx.t(
+                                "errors.rate_limited",
+                                default="You're being rate limited. Try again in {seconds:.1f}s.",
+                                seconds=wait,
+                            ),
+                            ephemeral=True,
+                        )
+                        return
                 try:
+                    if cooldown is not None:
+                        _cooldown_last_used[ctx.user.id] = time.monotonic()
+                    if normalized_rate_limit is not None:
+                        _rate_limit_last_used[ctx.user.id].append(time.monotonic())
                     await func(ctx, **kwargs)
                 except Exception as exc:
                     if self._error_handler is not None:
@@ -209,6 +240,7 @@ class _CommandsMixin:
         ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
+        rate_limit: tuple[int, int] | None = None,
         autocomplete: dict[str, Callable] | None = None,
         choices: dict[str, list] | None = None,
         nsfw: bool = False,
@@ -222,12 +254,14 @@ class _CommandsMixin:
         the group instead of the command tree (used by add_group).
         """
         guild = discord.Object(id=guild_id) if guild_id else None
+        normalized_rate_limit = self._validate_rate_limit(rate_limit)
         callback = self._build_slash_callback(
             func,
             guild_only=guild_only,
             ephemeral=ephemeral,
             permissions=permissions,
             cooldown=cooldown,
+            rate_limit=normalized_rate_limit,
         )
         if choices:
             self._inject_choices(callback, choices)
@@ -417,3 +451,17 @@ class _CommandsMixin:
             callback.__discord_app_commands_param_choices__[param_name] = [
                 app_commands.Choice(name=str(v), value=v) for v in values
             ]
+
+    @staticmethod
+    def _validate_rate_limit(
+        rate_limit: tuple[int, int] | None,
+    ) -> tuple[int, float] | None:
+        """Normalize and validate a per-command rate-limit configuration."""
+        if rate_limit is None:
+            return None
+        limit, window = rate_limit
+        if limit < 1:
+            raise ValueError("rate_limit limit must be at least 1")
+        if window <= 0:
+            raise ValueError("rate_limit window must be greater than 0")
+        return int(limit), float(window)

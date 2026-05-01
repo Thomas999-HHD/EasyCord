@@ -52,6 +52,13 @@ def slash(
     """
 
     def decorator(func: Callable) -> Callable:
+        resolved_aliases: list[str] = []
+        seen_aliases: set[str] = set()
+        for alias in aliases or []:
+            if alias == (name or func.__name__) or alias in seen_aliases:
+                continue
+            seen_aliases.add(alias)
+            resolved_aliases.append(alias)
         func._is_slash = True
         func._slash_name = name or func.__name__
         func._slash_desc = description
@@ -62,7 +69,7 @@ def slash(
         func._slash_cooldown = cooldown
         func._slash_autocomplete = autocomplete or {}
         func._slash_choices = choices or {}
-        func._slash_aliases = aliases or []
+        func._slash_aliases = resolved_aliases
         func._slash_rate_limit = rate_limit
         return func
 
@@ -130,6 +137,10 @@ def on(event: str, *, on_cleanup: Callable | None = None) -> Callable:
             async def on_ready(self):
                 print("Bot is ready!")
     """
+    if not event:
+        raise ValueError("event name must not be empty")
+    if on_cleanup is not None and not callable(on_cleanup):
+        raise TypeError("on_cleanup must be callable or None")
 
     def decorator(func: Callable) -> Callable:
         func._is_event = True

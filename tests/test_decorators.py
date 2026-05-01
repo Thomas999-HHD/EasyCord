@@ -67,6 +67,24 @@ def test_slash_returns_original_function():
     assert wrapped is original
 
 
+def test_slash_dedupes_aliases():
+    @slash(name="cmd", aliases=["cmd", "alt", "alt"])
+    async def handler(ctx):
+        pass
+
+    assert handler._slash_aliases == ["alt"]
+
+
+def test_on_rejects_empty_event_name():
+    with pytest.raises(ValueError, match="must not be empty"):
+        on("")
+
+
+def test_on_rejects_noncallable_cleanup():
+    with pytest.raises(TypeError, match="must be callable"):
+        on("message", on_cleanup=object())
+
+
 # ── on ────────────────────────────────────────────────────────────────────────
 
 def test_on_marks_function():

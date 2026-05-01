@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from easycord.plugin import Plugin
 from easycord.decorators import slash, on
@@ -50,6 +50,49 @@ def test_on_decorator_attributes_on_plugin_method():
     p = MyPlugin()
     assert p.greet._is_event is True
     assert p.greet._event_name == "member_join"
+
+
+def test_on_cleanup_runs_when_plugin_is_removed():
+    cleanup = AsyncMock()
+
+    class MyPlugin(Plugin):
+        @on("member_join", on_cleanup=cleanup)
+        async def greet(self, member):
+            pass
+
+    from easycord.bot import Bot
+
+    bot = Bot(db_backend="memory")
+    plugin = MyPlugin()
+    bot.add_plugin(plugin)
+
+    import asyncio
+
+    asyncio.run(bot.remove_plugin(plugin))
+    cleanup.assert_awaited_once()
+
+
+def test_on_cleanup_binds_plugin_instance_when_needed():
+    received = []
+
+    async def cleanup(plugin):
+        received.append(plugin)
+
+    class MyPlugin(Plugin):
+        @on("member_join", on_cleanup=cleanup)
+        async def greet(self, member):
+            pass
+
+    from easycord.bot import Bot
+
+    bot = Bot(db_backend="memory")
+    plugin = MyPlugin()
+    bot.add_plugin(plugin)
+
+    import asyncio
+
+    asyncio.run(bot.remove_plugin(plugin))
+    assert received == [plugin]
 
 
 def test_user_command_attributes_on_plugin_method():

@@ -1,8 +1,8 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-4.2.0-blue)
+![Version](https://img.shields.io/badge/v-4.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-610%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-619%20passing-brightgreen)
 
 > A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
@@ -29,7 +29,11 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-## New in v4.2
+## New in v4.3
+
+### Safer plugin flow
+
+Slash commands now support a real per-command `rate_limit=(limit, window)` guard, and plugin event handlers can register `on_cleanup` callbacks that run when the plugin unloads.
 
 ### Easy Paginator
 

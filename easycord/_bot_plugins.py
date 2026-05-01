@@ -35,6 +35,7 @@ class _PluginsMixin:
                     ephemeral=getattr(method, "_slash_ephemeral", False),
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
+                    rate_limit=getattr(method, "_slash_rate_limit", None),
                     autocomplete=getattr(method, "_slash_autocomplete", None),
                     choices=getattr(method, "_slash_choices", None),
                     parent=parent,
@@ -49,6 +50,7 @@ class _PluginsMixin:
                         ephemeral=getattr(method, "_slash_ephemeral", False),
                         permissions=getattr(method, "_slash_permissions", None),
                         cooldown=getattr(method, "_slash_cooldown", None),
+                        rate_limit=getattr(method, "_slash_rate_limit", None),
                         autocomplete=getattr(method, "_slash_autocomplete", None),
                         choices=getattr(method, "_slash_choices", None),
                         parent=parent,
@@ -133,6 +135,7 @@ class _PluginsMixin:
                 "Call bot.add_plugin() before trying to remove it."
             )
         self._plugins.remove(plugin)
+        seen_event_cleanups: set[int] = set()
         for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if getattr(method, "_is_slash", False):
                 guild = (
@@ -153,6 +156,12 @@ class _PluginsMixin:
                     self._event_handlers[method._event_name].remove(method)
                 except (KeyError, ValueError):
                     pass
+                cleanup = getattr(method, "_event_cleanup", None)
+                if cleanup is not None:
+                    callback_key = id(cleanup)
+                    if callback_key not in seen_event_cleanups:
+                        seen_event_cleanups.add(callback_key)
+                        await self._run_event_cleanup(plugin, cleanup)
             if getattr(method, "_is_user_command", False):
                 guild = discord.Object(id=method._context_menu_guild) if method._context_menu_guild else None
                 try:
@@ -182,6 +191,18 @@ class _PluginsMixin:
             except asyncio.CancelledError:
                 pass
         await plugin.on_unload()
+
+    @staticmethod
+    async def _run_event_cleanup(plugin: Plugin, cleanup: Callable) -> None:
+        """Run a cleanup callback attached to an event handler once per plugin."""
+        bound = cleanup
+        if inspect.isfunction(cleanup):
+            params = list(inspect.signature(cleanup).parameters.values())
+            if params:
+                bound = cleanup.__get__(plugin, type(plugin))
+        result = bound()
+        if inspect.isawaitable(result):
+            await result
 
     async def reload_plugin(self, name: str) -> None:
         """Reload a plugin by class name — calls ``on_unload`` then ``on_load`` in-place.

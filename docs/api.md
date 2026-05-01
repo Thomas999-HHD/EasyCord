@@ -352,9 +352,9 @@ Raises `ValueError` if `.title()` was not called before `.send()`.
 
 ## Plugin decorators (`easycord.decorators`)
 
-`@slash(name=None, *, description, guild_id=None, guild_only=False, ephemeral=False, permissions=None, cooldown=None, autocomplete=None, choices=None, aliases=None)` — same parameters as `Bot.slash`
+`@slash(name=None, *, description, guild_id=None, guild_only=False, ephemeral=False, permissions=None, cooldown=None, autocomplete=None, choices=None, aliases=None, rate_limit=None)` — same parameters as `Bot.slash`
 
-`@on(event)` — mark method as event handler
+`@on(event, *, on_cleanup=None)` — mark method as event handler and optionally run cleanup on unload
 
 `@task(*, seconds=0, minutes=0, hours=0)` — repeating background task; starts on load, stops on unload
 

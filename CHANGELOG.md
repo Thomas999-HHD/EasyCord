@@ -1,5 +1,23 @@
 # Changelog
 
+## [4.3.0] — 2026-05-01
+
+Slash-command validation, unload cleanup, and release handoff polish.
+
+### Added
+- Added command-level `rate_limit=(limit, window)` support to `@slash` / `Bot.slash`.
+- Added `on_cleanup` handling for `@on(...)` event handlers when a plugin unloads.
+
+### Changed
+- Deduplicated slash aliases before registration so repeated names no longer double-register.
+- Updated the Desktop workspace handoff and release notes to match the 4.3.0 cut.
+
+### Validation
+- `pytest tests/test_decorators.py tests/test_plugin.py tests/test_bot.py`
+- `pytest` (`619 passed`)
+
+---
+
 ## [4.1.0] — 2026-04-28
 
 Localization auto-translate, Composer localization wiring, and release-line alignment.

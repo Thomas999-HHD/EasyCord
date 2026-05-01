@@ -6,6 +6,16 @@
 
 Decorator-first Python framework for Discord bots on `discord.py>=2.0`. Removes boilerplate: decorators register slash commands, middleware wraps every invocation, plugins group commands/events into classes.
 
+Current release line: `4.3.0`.
+Current workspace: `C:\Users\Tom\Desktop\LSPDFRManager-1.1.1` (junction to the live repo).
+Full test suite status at save time: `619 passed`.
+
+## Recent Release Notes
+
+- Added command-level `rate_limit=(limit, window)` validation for slash commands.
+- Added `on_cleanup` support for event handlers during plugin unload.
+- Deduplicated slash aliases before registration so repeated names no longer double-register.
+
 ## Layout
 
 | Path | Purpose |

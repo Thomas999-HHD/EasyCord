@@ -4,6 +4,14 @@
 - Project home for EasyCord.
 - Current folder status: the EasyCord framework is now present and actively being updated.
 
+## Version 4.3.0 Notes
+The current release line is `4.3.0`.
+
+### Recent changes
+- Slash commands now support per-command `rate_limit=(limit, window)` validation.
+- `@on(..., on_cleanup=...)` cleanup callbacks run when a plugin unloads.
+- Slash aliases are deduped before registration so repeated names do not double-register.
+
 ## Version 3.1.3 Notes
 The PDF titled `EasyCord_v3.1.3_Brainstorm.pdf` describes the v3.1.3 "Foundation Update" focus areas:
 - Advanced database suite
@@ -28,7 +36,7 @@ The PDF titled `EasyCord_v3.1.3_Brainstorm.pdf` describes the v3.1.3 "Foundation
 - `Bot.load_builtin_plugins()` can load the bundled plugin pack.
 - `Composer()` can forward builtin-plugin, database backend, database path, and guild auto-sync settings.
 - `EmbedCard` and themed embed wrappers exist for embeds that carry buttons or select menus.
-- Existing tests were updated and the full suite passed at save time.
+- Existing tests were updated and the full suite passed at save time: `619 passed`.
 - Open roadmap items from the PDF that are still not fully implemented: localization/i18n, dynamic status rotation, and richer analytics/webhook logging.
 
 ## Token-Saving Practices

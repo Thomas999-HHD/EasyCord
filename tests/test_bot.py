@@ -471,6 +471,33 @@ async def test_rate_limit_per_command_independent_per_user(bot):
     assert invoked == [1, 2]
 
 
+async def test_rate_limit_decorator_blocks_after_limit(bot):
+    invoked = []
+
+    async def on_cmd(*_):
+        invoked.append(True)
+
+    bot.slash(description="test", rate_limit=(2, 10))(on_cmd)
+    callback = bot.tree.add_command.call_args[0][0].callback
+    interaction = _make_interaction()
+    await callback(interaction)
+    await callback(interaction)
+    await callback(interaction)
+
+    assert len(invoked) == 2
+    assert interaction.response.send_message.call_count == 1
+    msg = interaction.response.send_message.call_args[0][0]
+    assert "rate limit" in msg.lower()
+
+
+def test_rate_limit_decorator_rejects_invalid_config(bot):
+    async def on_cmd(*_):
+        pass
+
+    with pytest.raises(ValueError, match="at least 1"):
+        bot.slash(description="test", rate_limit=(0, 10))(on_cmd)
+
+
 # ── user_command ──────────────────────────────────────────────────────────────
 
 def test_user_command_registers_context_menu(bot):

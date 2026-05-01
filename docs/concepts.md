@@ -225,6 +225,8 @@ class FunPlugin(Plugin):
 bot.add_plugin(FunPlugin())
 ```
 
+Use `rate_limit=(limit, window)` on `@slash` when a single command should have its own per-user cap, and `@on(..., on_cleanup=...)` when a handler needs teardown logic during plugin unload.
+
 ### Plugin lifecycle
 
 - `add_plugin()`:

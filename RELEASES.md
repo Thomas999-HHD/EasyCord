@@ -1,5 +1,17 @@
 # Release Notes
 
+## v4.3.0 — Slash Rate Limits and Safer Plugin Cleanup
+
+**Release Date:** 2026-05-01
+
+### Highlights
+
+- Added command-level `rate_limit=(limit, window)` support for slash commands and validated bad input early.
+- Added unload-time `on_cleanup` callbacks for event handlers.
+- Deduplicated slash aliases before registration to avoid accidental double-registers.
+
+See full notes: [`RELEASE_v4.3.0.md`](RELEASE_v4.3.0.md).
+
 ## v4.2.0 — Helper Utilities and Faster Bot Setup
 
 **Release Date:** 2026-04-29
