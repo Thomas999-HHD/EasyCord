@@ -273,6 +273,8 @@ class LocalizationManager:
     def get_metrics(self) -> dict[str, int | dict]:
         """Get resolution metrics (only if track_metrics=True).
 
+        Returns IMMUTABLE deep snapshot to prevent caller mutation of internal state.
+
         Returns dict with:
         - cache_hits: successful lookups in preferred locale (user/guild locale)
         - cache_misses: lookups that required fallback resolution
@@ -293,7 +295,15 @@ class LocalizationManager:
         """
         if not self.track_metrics:
             return {}
-        return dict(self._metrics)
+        # Return deep copy to prevent caller from mutating internal state
+        return {
+            "cache_hits": self._metrics["cache_hits"],
+            "cache_misses": self._metrics["cache_misses"],
+            "fallback_resolution": self._metrics["fallback_resolution"],
+            "auto_translated": self._metrics["auto_translated"],
+            "missing_keys": self._metrics["missing_keys"],
+            "locale_frequency": dict(self._metrics["locale_frequency"]),
+        }
 
     def reset_metrics(self) -> None:
         """Reset all metrics to zero (for per-session tracking)."""

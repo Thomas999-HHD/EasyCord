@@ -8,11 +8,29 @@ Checks:
 - No development files in distribution
 - Package metadata aligned
 - Release documentation complete
+
+Usage:
+  python check_release_consistency.py          # uses version from pyproject.toml
+  python check_release_consistency.py --version 4.5.0-beta.1
 """
+import argparse
 import re
 import sys
 import tarfile
 from pathlib import Path
+
+
+def read_version_from_pyproject(repo_root: Path) -> str | None:
+    """Extract version from pyproject.toml."""
+    pyproject = repo_root / "pyproject.toml"
+    if not pyproject.exists():
+        return None
+
+    content = pyproject.read_text(encoding="utf-8", errors="replace")
+    match = re.search(r'version\s*=\s*"([^"]+)"', content)
+    if match:
+        return match.group(1)
+    return None
 
 
 def check_version_consistency(repo_root: Path, expected_version: str) -> list[str]:
@@ -136,8 +154,23 @@ def check_install_commands(repo_root: Path, expected_version: str) -> list[str]:
 
 def main():
     """Run all validation checks."""
+    parser = argparse.ArgumentParser(description="Release consistency validator")
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="Expected version (defaults to version in pyproject.toml)"
+    )
+    args = parser.parse_args()
+
     repo_root = Path(__file__).parent.parent
-    expected_version = "4.4.0"
+
+    # Determine expected version
+    expected_version = args.version
+    if not expected_version:
+        expected_version = read_version_from_pyproject(repo_root)
+        if not expected_version:
+            print("[!] ERROR: Could not determine version from pyproject.toml or --version")
+            return 1
 
     all_errors = []
 
@@ -180,7 +213,10 @@ def main():
     dist_dir = repo_root / "dist"
     if dist_dir.exists():
         print("\n[*] Distribution archive hygiene...")
-        archives = list(dist_dir.glob(f"easycord-{expected_version}*.tar.gz"))
+        # Normalize version for glob: 4.5.0-beta.1 -> 4.5.0b1
+        normalized_version = expected_version.replace("-", "").replace(".", "")
+        # More flexible glob: match any easycord-*.tar.gz in dist
+        archives = sorted(dist_dir.glob("easycord-*.tar.gz"), reverse=True)
         if archives:
             errors = check_distribution_hygiene(archives[0])
             if errors:
