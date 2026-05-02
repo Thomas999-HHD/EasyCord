@@ -24,7 +24,7 @@ The documentation is organized around one beginner-friendly path: install the pa
 - [`security-best-practices.md`](security-best-practices.md) — token management, permissions, input validation, AI tool safety (with safety pipeline model), and production deployment.
 - [`performance-tuning.md`](performance-tuning.md) — optimize command latency, memory usage, database queries, and concurrent throughput.
 - [`troubleshooting.md`](troubleshooting.md) — common issues (bot won't start, commands don't appear, permissions fail) and solutions.
-- [`stability-and-scope.md`](stability-and-scope.md) — what's frozen (won't break in v3.x), what's intentional gaps, extension surface, upgrade safety.
+- [`stability-and-scope.md`](stability-and-scope.md) — what's frozen (won't break in v4.x), what's intentional gaps, extension surface, upgrade safety.
 
 ## What this removes
 
