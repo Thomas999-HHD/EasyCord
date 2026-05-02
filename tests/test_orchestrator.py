@@ -19,8 +19,13 @@ def _make_ctx():
 @pytest.mark.asyncio
 async def test_orchestrator_supports_legacy_string_providers():
     """Legacy providers returning plain strings should still work."""
+
+    async def legacy_query(prompt: str) -> str:
+        assert prompt == "USER: hello world"
+        return "legacy response"
+
     provider = MagicMock()
-    provider.query = AsyncMock(return_value="legacy response")
+    provider.query = AsyncMock(side_effect=legacy_query)
     orchestrator = Orchestrator(
         strategy=FallbackStrategy([provider]),
         tools=ToolRegistry(),
@@ -34,7 +39,11 @@ async def test_orchestrator_supports_legacy_string_providers():
     )
 
     assert result.text == "legacy response"
-    provider.query.assert_awaited_once_with("USER: hello world")
+    assert provider.query.await_count == 2
+    first_call, second_call = provider.query.await_args_list
+    assert first_call.kwargs == {"prompt": "USER: hello world", "tools": None}
+    assert second_call.args == ("USER: hello world",)
+    assert second_call.kwargs == {}
 
 
 @pytest.mark.asyncio
