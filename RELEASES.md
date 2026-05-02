@@ -1,5 +1,23 @@
 # Release Notes
 
+## v4.4.0 - Localization Infrastructure & Platform Foundation
+
+**Release Date:** 2026-05-02
+
+### Highlights
+
+- Locale auto-detection with intelligent fallback chains (user → guild → system → default)
+- Regional fallback support (pt-BR → pt → en-US) for partial translations without requiring complete language packs
+- Diagnostic modes (SILENT/WARN/STRICT) with smart deduplication preventing log spam
+- Translation completeness validation with per-locale coverage metrics
+- Debug-only locale resolution tracing with zero production overhead
+- Optional metrics tracking for observability (cache hits, fallback frequency, locale distribution)
+- Deterministic locale normalization (idempotent, centralized, safe for caching)
+- Bounded fallback chains (non-recursive, maximum ~15 candidates, no cycles)
+- Production-safe under stress with all 193 tests passing
+
+See full notes: [`RELEASE_v4.4.0.md`](RELEASE_v4.4.0.md).
+
 ## v4.3.1 - Localization Auto-Translator & Type Checking Bug Fixes
 
 **Release Date:** 2026-05-01

@@ -1,5 +1,5 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-4.3.1%20%28stable%29-blue)
+![Version](https://img.shields.io/badge/v-4.4.0%20%28stable%29-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-615%20passing-brightgreen)
@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3.1"`
+1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.4.0"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,13 +29,22 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-## New in v4.3.1 (Current Stable Release)
+## New in v4.4.0 (Current Stable Release)
 
-**Production stability fixes:**
+**Platform-grade localization infrastructure:**
+- Locale auto-detection with intelligent fallback chains (user → guild → system → default)
+- Regional fallback support (pt-BR → pt → en-US) for partial translations
+- Three diagnostic modes: SILENT (production, zero overhead), WARN (development, deduplicated), STRICT (CI/testing)
+- Translation completeness validation with coverage metrics
+- Debug-only locale resolution tracing with zero overhead when disabled
+- Optional metrics tracking for cache hits, fallback frequency, and locale distribution
+- Deterministic normalization guarantees (idempotent, centralized, safe for caching)
+- All 193 localization and core tests passing
+- Production-ready under stress with measurable performance characteristics
+
+**Earlier in v4.3.1:**
 - Fixed localization auto-translator source priority to ensure canonical translations are used consistently across language chains
 - Fixed type checking infrastructure for slash command groups (Ruff F821 undefined-name error)
-- All 117 regression tests passing
-- Full migration guidance included in release notes
 
 **Earlier in v4.3:**
 - Current package line re-cut with the EasyCord helper utilities from `easycord/`
@@ -100,7 +109,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3.1"
+pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.4.0"
 ```
 
 ### Clone and install locally
