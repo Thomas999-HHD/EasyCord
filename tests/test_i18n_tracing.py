@@ -135,12 +135,12 @@ class TestLocaleResolutionMetrics:
         assert metrics["locale_frequency"]["pt-BR"] == 1
 
     def test_metrics_cache_miss_and_fallback(self, i18n_with_metrics):
-        """Metrics tracks cache misses and fallback usage."""
+        """Metrics tracks cache misses and fallback resolution."""
         i18n_with_metrics.get("greeting", locale="pt-BR")  # Not in pt-BR
         metrics = i18n_with_metrics.get_metrics()
 
         assert metrics["cache_misses"] == 1
-        assert metrics["fallback_uses"] == 1
+        assert metrics["fallback_resolution"] == 1
         assert metrics["locale_frequency"]["en-US"] == 1
 
     def test_metrics_missing_key(self, i18n_with_metrics):
@@ -154,13 +154,13 @@ class TestLocaleResolutionMetrics:
         """Metrics accumulate across multiple lookups."""
         i18n_with_metrics.get("hello", locale="pt-BR")  # Cache hit
         i18n_with_metrics.get("hello", locale="pt-BR")  # Cache hit again
-        i18n_with_metrics.get("greeting", locale="pt-BR")  # Cache miss + fallback
-        i18n_with_metrics.get("unknown", locale="es-ES")  # Cache miss + missing key
+        i18n_with_metrics.get("greeting", locale="pt-BR")  # Cache miss + fallback_resolution
+        i18n_with_metrics.get("unknown", locale="es-ES")  # Cache miss + missing_key
 
         metrics = i18n_with_metrics.get_metrics()
         assert metrics["cache_hits"] == 2
         assert metrics["cache_misses"] == 2  # Two misses (greeting, unknown)
-        assert metrics["fallback_uses"] == 1  # Only greeting had fallback (unknown not found)
+        assert metrics["fallback_resolution"] == 1  # Only greeting had fallback (unknown not found)
         assert metrics["missing_keys"] == 1  # Only unknown missing
 
     def test_metrics_locale_frequency(self, i18n_with_metrics):

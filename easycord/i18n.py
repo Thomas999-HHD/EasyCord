@@ -219,6 +219,8 @@ class LocalizationManager:
         warn_invalid_locale: bool = True,
         diagnostic_mode: DiagnosticMode = DiagnosticMode.SILENT,
         track_metrics: bool = False,
+        max_auto_translated_locales: int = 50,
+        max_tracked_locales: int = 100,
     ) -> None:
         self.default_locale = _normalize_locale(default_locale) or "en-US"
         self._catalogs: dict[str, dict[str, str]] = {}
@@ -228,13 +230,18 @@ class LocalizationManager:
         self._system_locale: str | None = None
         self.diagnostics = LocalizationDiagnostics(mode=diagnostic_mode)
         self.track_metrics = track_metrics
+        self._max_auto_translated = max_auto_translated_locales
+        self._max_tracked_locales = max_tracked_locales
+        self._auto_translated_count = 0
         self._metrics: dict[str, int] = {
             "cache_hits": 0,
             "cache_misses": 0,
-            "fallback_uses": 0,
+            "fallback_resolution": 0,
             "missing_keys": 0,
+            "auto_translated": 0,
             "locale_frequency": {},
         } if track_metrics else {}
+        self._chain_cache: dict[str, list[str]] = {}
         if auto_detect_system_locale:
             self._system_locale = detect_os_locale()
             if self._system_locale:
@@ -259,11 +266,22 @@ class LocalizationManager:
         """Get resolution metrics (only if track_metrics=True).
 
         Returns dict with:
-        - cache_hits: successful lookups in preferred locale
-        - cache_misses: lookups that fell back
-        - fallback_uses: times default locale was used
-        - missing_keys: keys not found in any locale
-        - locale_frequency: usage count per locale
+        - cache_hits: successful lookups in preferred locale (user/guild locale)
+        - cache_misses: lookups that required fallback resolution
+        - fallback_resolution: times default locale chain was successfully used
+        - auto_translated: keys successfully auto-translated
+        - missing_keys: keys not found in any locale or via auto-translation
+        - locale_frequency: usage count per locale (capped at max_tracked_locales)
+
+        Semantics:
+        - cache_hit: key found in requested/guild locale, no fallback needed
+        - cache_miss: key not in requested locale, fallback occurred
+        - fallback_resolution: fallback to default locale succeeded
+        - auto_translated: auto-translator provided translation
+        - missing_key: key not found anywhere, returned as-is
+
+        Note: locale_frequency is pruned when exceeding max_tracked_locales
+        to prevent unbounded memory growth.
         """
         if not self.track_metrics:
             return {}
@@ -274,9 +292,11 @@ class LocalizationManager:
         if self.track_metrics:
             self._metrics["cache_hits"] = 0
             self._metrics["cache_misses"] = 0
-            self._metrics["fallback_uses"] = 0
+            self._metrics["fallback_resolution"] = 0
+            self._metrics["auto_translated"] = 0
             self._metrics["missing_keys"] = 0
             self._metrics["locale_frequency"] = {}
+        self._auto_translated_count = 0
 
     def resolve_chain(
         self,
@@ -284,13 +304,28 @@ class LocalizationManager:
         *,
         guild_locale: Any = None,
     ) -> list[str]:
-        """Return the fallback chain for a locale lookup."""
+        """Return the fallback chain for a locale lookup (with memoization)."""
+        normalized_locale = _normalize_locale(locale)
+        normalized_guild = _normalize_locale(guild_locale)
+
+        # Create cache key from inputs (including default_locale if none specified)
+        if normalized_locale is None and normalized_guild is None:
+            # Only default locale
+            cache_key = (None, None, True)
+        else:
+            cache_key = (normalized_locale, normalized_guild, False)
+
+        if cache_key in self._chain_cache:
+            return self._chain_cache[cache_key]
+
         chain: list[str] = []
-        for candidate in (
-            _normalize_locale(locale),
-            _normalize_locale(guild_locale),
-            self.default_locale,
-        ):
+        # If no locale specified, start with default
+        if normalized_locale is None and normalized_guild is None:
+            candidates = [self.default_locale]
+        else:
+            candidates = [normalized_locale, normalized_guild, self.default_locale]
+
+        for candidate in candidates:
             if not candidate:
                 continue
             parts = candidate.split("-")
@@ -298,6 +333,10 @@ class LocalizationManager:
                 value = "-".join(parts[:index])
                 if value not in chain:
                     chain.append(value)
+
+        # Cache result (bounded to prevent unbounded growth)
+        if len(self._chain_cache) < 1000:
+            self._chain_cache[cache_key] = chain
         return chain
 
     def auto_detect_locale(
@@ -422,6 +461,10 @@ class LocalizationManager:
         """Look up a translated string and fall back safely if missing."""
         requested_locale = _normalize_locale(locale)
         guild_normalized = _normalize_locale(guild_locale)
+        found_in = None
+        is_cache_hit = False
+
+        # Build preferred chain (user locale + guild locale, NO default)
         preferred_chain: list[str] = []
         for candidate in (requested_locale, guild_normalized):
             if not candidate:
@@ -436,16 +479,20 @@ class LocalizationManager:
         for candidate in preferred_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
+                found_in = candidate
+                is_cache_hit = True
                 if self.track_metrics:
                     self._metrics["cache_hits"] += 1
-                    self._metrics["locale_frequency"][candidate] = (
-                        self._metrics["locale_frequency"].get(candidate, 0) + 1
-                    )
+                    self._update_locale_frequency(candidate)
                 self._trace_resolution(
                     key, locale, requested_locale, guild_locale, candidate,
                     preferred_chain, candidate, True
                 )
                 return catalog[key]
+
+        # Try auto-translation if enabled and key not found in preferred chain
+        if self.track_metrics:
+            self._metrics["cache_misses"] += 1
 
         auto_translated = self._auto_translate_missing(
             key,
@@ -454,26 +501,26 @@ class LocalizationManager:
             default=default,
         )
         if auto_translated is not None:
-            if self.track_metrics and requested_locale:
-                self._metrics["cache_hits"] += 1
+            found_in = "auto_translator"
+            if self.track_metrics:
+                self._metrics["auto_translated"] += 1
+                if requested_locale:
+                    self._update_locale_frequency(requested_locale)
             self._trace_resolution(
-                key, locale, requested_locale, guild_locale, None,
-                preferred_chain, "auto_translator", True
+                key, locale, requested_locale, guild_locale, requested_locale,
+                preferred_chain, "auto_translator", False
             )
             return auto_translated
 
         # Fall back to default locale chain
-        if self.track_metrics:
-            self._metrics["cache_misses"] += 1
         default_chain = self.resolve_chain(self.default_locale)
         for candidate in default_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
+                found_in = candidate
                 if self.track_metrics:
-                    self._metrics["fallback_uses"] += 1
-                    self._metrics["locale_frequency"][candidate] = (
-                        self._metrics["locale_frequency"].get(candidate, 0) + 1
-                    )
+                    self._metrics["fallback_resolution"] += 1
+                    self._update_locale_frequency(candidate)
                 if requested_locale:
                     self.diagnostics.report_missing_key(
                         key, requested_locale, fallback_locale=candidate
@@ -494,6 +541,17 @@ class LocalizationManager:
             default_chain, None, False
         )
         return default if default is not None else key
+
+    def _update_locale_frequency(self, locale: str) -> None:
+        """Update locale frequency metrics with bounds checking."""
+        freq = self._metrics["locale_frequency"]
+        freq[locale] = freq.get(locale, 0) + 1
+
+        # Prune if exceeds max tracked locales
+        if len(freq) > self._max_tracked_locales:
+            # Remove least-frequently-used locale
+            min_locale = min(freq, key=freq.get)
+            del freq[min_locale]
 
     def _find_source_for_key(
         self,
@@ -540,7 +598,11 @@ class LocalizationManager:
         translated = self._auto_translator(source_text, source_locale, target_locale)
         if not translated:
             return None
-        self.register(target_locale, {key: translated})
+
+        # Only register if within bounds to prevent unbounded catalog growth
+        if self._auto_translated_count < self._max_auto_translated:
+            self.register(target_locale, {key: translated})
+            self._auto_translated_count += 1
         return translated
 
     def format(
