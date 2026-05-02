@@ -4,7 +4,6 @@ include RELEASES.md
 include RELEASE_v4.4.0.md
 include RELEASE_v4.3.1.md
 include ROADMAP_v4.4.0.md
-include CLAUDE.md
 recursive-include easycord *.py
 recursive-include easycord *.typed
 recursive-include docs *.md
@@ -18,6 +17,9 @@ exclude .github
 exclude .gitignore
 exclude setup.py
 exclude tox.ini
+exclude CLAUDE.md
+exclude AGENTS.md
+exclude MODEL_CONTEXT.md
 prune __pycache__
 prune .pytest_cache
 prune .mypy_cache

@@ -201,6 +201,12 @@ class LocalizationManager:
     checks the interaction locale first, then the guild locale, then the
     configured default locale, and finally a simple language-only fallback
     (for example ``pt-BR`` → ``pt``).
+
+    Thread Safety:
+    This class is NOT thread-safe. It assumes single-threaded access within
+    a request/event scope. Metrics and diagnostics state use non-atomic counters.
+    For concurrent access (e.g., sharded deployments, async locale providers),
+    external synchronization is required.
     """
 
     def __init__(
