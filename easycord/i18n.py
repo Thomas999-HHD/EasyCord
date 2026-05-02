@@ -9,6 +9,7 @@ from typing import Callable
 from typing import Any
 
 logger = logging.getLogger("easycord.i18n")
+trace_logger = logging.getLogger("easycord.i18n.trace")
 
 
 class DiagnosticMode(Enum):
@@ -309,6 +310,32 @@ class LocalizationManager:
             return False
         return True
 
+    def _trace_resolution(
+        self,
+        key: str,
+        raw_locale: Any,
+        normalized_locale: str | None,
+        guild_locale: Any,
+        resolved_locale: str | None,
+        fallback_chain: list[str],
+        found_in: str | None,
+        cache_hit: bool,
+    ) -> None:
+        """Trace locale resolution path (debug-only telemetry)."""
+        if not trace_logger.isEnabledFor(logging.DEBUG):
+            return
+
+        trace_logger.debug(
+            f"[{key}] "
+            f"raw_locale={raw_locale!r} "
+            f"normalized={normalized_locale!r} "
+            f"guild={guild_locale!r} "
+            f"resolved={resolved_locale!r} "
+            f"chain={fallback_chain!r} "
+            f"found_in={found_in!r} "
+            f"cache_hit={cache_hit}"
+        )
+
     def validate_completeness(
         self, base_locale: str | None = None
     ) -> TranslationValidationReport:
@@ -356,8 +383,9 @@ class LocalizationManager:
     ) -> str:
         """Look up a translated string and fall back safely if missing."""
         requested_locale = _normalize_locale(locale)
+        guild_normalized = _normalize_locale(guild_locale)
         preferred_chain: list[str] = []
-        for candidate in (requested_locale, _normalize_locale(guild_locale)):
+        for candidate in (requested_locale, guild_normalized):
             if not candidate:
                 continue
             parts = candidate.split("-")
@@ -366,9 +394,14 @@ class LocalizationManager:
                 if value not in preferred_chain:
                     preferred_chain.append(value)
 
+        # Check preferred chain (user locale + guild locale)
         for candidate in preferred_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
+                self._trace_resolution(
+                    key, locale, requested_locale, guild_locale, candidate,
+                    preferred_chain, candidate, True
+                )
                 return catalog[key]
 
         auto_translated = self._auto_translate_missing(
@@ -378,19 +411,34 @@ class LocalizationManager:
             default=default,
         )
         if auto_translated is not None:
+            self._trace_resolution(
+                key, locale, requested_locale, guild_locale, None,
+                preferred_chain, "auto_translator", True
+            )
             return auto_translated
 
-        for candidate in self.resolve_chain(self.default_locale):
+        # Fall back to default locale chain
+        default_chain = self.resolve_chain(self.default_locale)
+        for candidate in default_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
                 if requested_locale:
                     self.diagnostics.report_missing_key(
                         key, requested_locale, fallback_locale=candidate
                     )
+                self._trace_resolution(
+                    key, locale, requested_locale, guild_locale, candidate,
+                    default_chain, candidate, False
+                )
                 return catalog[key]
 
+        # Not found anywhere
         if requested_locale:
             self.diagnostics.report_missing_key(key, requested_locale)
+        self._trace_resolution(
+            key, locale, requested_locale, guild_locale, None,
+            default_chain, None, False
+        )
         return default if default is not None else key
 
     def _find_source_for_key(
