@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pyflakes easycord/plugins/reaction_roles.py)",
+      "Bash(python -m pyflakes tests/test_reaction_roles_plugin.py)",
+      "Bash(pytest --tb=short)",
+      "Bash(python -m pytest tests/test_openclaude_plugin.py::test_anthropic_query_returns_text -xvs)",
+      "Bash(python -m pytest tests/test_openclaude_plugin.py -q)",
+      "Bash(pytest tests/test_tool_limits.py -v)",
+      "Bash(python -m pytest tests/test_ai_moderator.py -xvs)",
+      "Bash(python -m pytest tests/test_ai_moderator.py::test_default_config -xvs)",
+      "Bash(python -m pytest tests/test_ai_moderator.py -x)",
+      "Bash(python -m pytest tests/test_reaction_roles_plugin.py -q)"
+    ]
+  }
+}
