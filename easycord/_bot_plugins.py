@@ -34,6 +34,7 @@ class _PluginsMixin:
                     description=method._slash_desc,
                     guild_id=method._slash_guild,
                     guild_only=getattr(method, "_slash_guild_only", False),
+                    require_admin=getattr(method, "_slash_require_admin", False),
                     ephemeral=getattr(method, "_slash_ephemeral", False),
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
@@ -51,6 +52,7 @@ class _PluginsMixin:
                         description=method._slash_desc,
                         guild_id=method._slash_guild,
                         guild_only=getattr(method, "_slash_guild_only", False),
+                        require_admin=getattr(method, "_slash_require_admin", False),
                         ephemeral=getattr(method, "_slash_ephemeral", False),
                         permissions=getattr(method, "_slash_permissions", None),
                         cooldown=getattr(method, "_slash_cooldown", None),
@@ -61,6 +63,8 @@ class _PluginsMixin:
                         allowed_installs=getattr(method, "_slash_allowed_installs", None),
                         parent=parent,
                     )
+            if getattr(method, "_is_command_error", False):
+                self._command_error_handlers[method._command_error_for] = method
             if getattr(method, "_is_event", False):
                 self._event_handlers.setdefault(
                     method._event_name, []

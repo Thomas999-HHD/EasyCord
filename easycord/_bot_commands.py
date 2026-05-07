@@ -31,6 +31,7 @@ class _CommandsMixin:
         description: str = "No description provided.",
         guild_id: int | None = None,
         guild_only: bool = False,
+        require_admin: bool = False,
         ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
@@ -74,6 +75,7 @@ class _CommandsMixin:
                 description=description,
                 guild_id=guild_id,
                 guild_only=guild_only,
+                require_admin=require_admin,
                 ephemeral=ephemeral,
                 permissions=permissions,
                 cooldown=cooldown,
@@ -90,6 +92,7 @@ class _CommandsMixin:
                     description=description,
                     guild_id=guild_id,
                     guild_only=guild_only,
+                    require_admin=require_admin,
                     ephemeral=ephemeral,
                     permissions=permissions,
                     cooldown=cooldown,
@@ -108,14 +111,22 @@ class _CommandsMixin:
         func: Callable,
         *,
         guild_only: bool = False,
+        require_admin: bool = False,
         ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
+        command_name: str | None = None,
     ) -> Callable:
         """Build a discord.py-compatible callback with guild, permission, and cooldown guards."""
         sig = inspect.signature(func)
         user_params = list(sig.parameters.values())[1:]
         _cooldown_last_used: dict[int, float] = {}
+
+        # Merge require_admin into the permissions list at build time so the
+        # check is handled by the single unified permissions path below.
+        effective_permissions = list(permissions or [])
+        if require_admin and "administrator" not in effective_permissions:
+            effective_permissions.append("administrator")
 
         async def callback(interaction: discord.Interaction, **kwargs) -> None:
             ctx = Context(interaction)
@@ -132,7 +143,7 @@ class _CommandsMixin:
                         ephemeral=True,
                     )
                     return
-                if permissions:
+                if effective_permissions:
                     if not ctx.guild:
                         await ctx.respond(
                             ctx.t(
@@ -153,7 +164,7 @@ class _CommandsMixin:
                         )
                         return
                     missing = [
-                        p for p in permissions
+                        p for p in effective_permissions
                         if not getattr(member.guild_permissions, p, False)
                     ]
                     if missing:
@@ -184,7 +195,13 @@ class _CommandsMixin:
                 try:
                     await func(ctx, **kwargs)
                 except Exception as exc:
-                    if self._error_handler is not None:
+                    # Per-command handler takes priority over global handler.
+                    per_cmd = command_name and getattr(
+                        self, "_command_error_handlers", {}
+                    ).get(command_name)
+                    if per_cmd is not None:
+                        await per_cmd(ctx, exc)
+                    elif self._error_handler is not None:
                         await self._error_handler(ctx, exc)
                     else:
                         raise
@@ -209,6 +226,7 @@ class _CommandsMixin:
         description: str,
         guild_id: int | None,
         guild_only: bool = False,
+        require_admin: bool = False,
         ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
@@ -228,9 +246,11 @@ class _CommandsMixin:
         callback = self._build_slash_callback(
             func,
             guild_only=guild_only,
+            require_admin=require_admin,
             ephemeral=ephemeral,
             permissions=permissions,
             cooldown=cooldown,
+            command_name=name,
         )
         if choices:
             self._inject_choices(callback, choices)

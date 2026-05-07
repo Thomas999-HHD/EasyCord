@@ -95,6 +95,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         except Exception as e:
             logger.debug(f"Failed to register builtin AI tools: {e}")
         self._error_handler = None
+        self._command_error_handlers: dict[str, object] = {}
         self.db = database or self._create_database(
             db_backend=db_backend,
             db_path=db_path,

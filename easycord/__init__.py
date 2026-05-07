@@ -26,7 +26,7 @@ from .composer import Composer
 from .context import Context
 from .context_builder import ContextBuilder
 from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatabase, SQLiteDatabase
-from .decorators import ai_tool, component, message_command, modal, on, slash, task, user_command
+from .decorators import ai_tool, command_error, component, describe, message_command, modal, on, slash, task, user_command
 from .i18n import LocalizationManager
 from .group import SlashGroup
 from .plugin import Plugin

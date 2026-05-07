@@ -6,12 +6,63 @@ from typing import Callable
 from easycord.tools import ToolSafety
 
 
+def describe(**descriptions: str) -> Callable:
+    """Attach per-parameter descriptions to a slash command.
+
+    Discord shows these in the command picker next to each option.
+    Call this as a decorator on the same method as ``@slash``; order does not matter.
+
+    Example::
+
+        class ModPlugin(Plugin):
+
+            @slash(description="Kick a member", permissions=["kick_members"])
+            @describe(member="The member to remove", reason="Why they are being kicked")
+            async def kick(self, ctx, member: discord.Member, reason: str = ""):
+                await member.kick(reason=reason)
+                await ctx.respond(f"Kicked {member.display_name}.")
+    """
+    def decorator(func: Callable) -> Callable:
+        if not hasattr(func, "__discord_app_commands_param_description__"):
+            func.__discord_app_commands_param_description__ = {}
+        func.__discord_app_commands_param_description__.update(descriptions)
+        return func
+    return decorator
+
+
+def command_error(command_name: str) -> Callable:
+    """Mark a Plugin method as the error handler for a specific slash command.
+
+    When the named command raises an unhandled exception, this method is called
+    instead of the global ``@bot.on_error`` handler.  The method receives
+    ``(ctx, exc)`` — the same signature as the global handler.
+
+    Example::
+
+        class MathPlugin(Plugin):
+
+            @slash(description="Divide two numbers")
+            async def divide(self, ctx, a: int, b: int):
+                await ctx.respond(str(a // b))
+
+            @command_error("divide")
+            async def divide_error(self, ctx, exc):
+                await ctx.respond("Cannot divide by zero.", ephemeral=True)
+    """
+    def decorator(func: Callable) -> Callable:
+        func._is_command_error = True
+        func._command_error_for = command_name
+        return func
+    return decorator
+
+
 def slash(
     name: str | None = None,
     *,
     description: str = "No description provided.",
     guild_id: int | None = None,
     guild_only: bool = False,
+    require_admin: bool = False,
     ephemeral: bool = False,
     permissions: list[str] | None = None,
     cooldown: float | None = None,
@@ -30,10 +81,16 @@ def slash(
         Short description shown in the Discord command picker.
     guild_id:
         Register to one specific server only (instant; global takes up to 1 hour).
+    guild_only:
+        Reject the command with an ephemeral error if used outside a server.
+    require_admin:
+        Shorthand for ``permissions=["administrator"]``. The invoking member must
+        have the Administrator permission; rejects with an ephemeral error otherwise.
     permissions:
         List of ``discord.Permissions`` attribute names required to run the command
         (e.g. ``["kick_members"]``). Responds ephemerally and skips the command if
-        any are missing.
+        any are missing.  Use ``require_admin=True`` as a convenient shorthand when
+        administrator access is the only requirement.
     cooldown:
         Per-user cooldown in seconds. Blocks the command ephemerally until the
         window expires.
@@ -43,9 +100,14 @@ def slash(
         class MyPlugin(Plugin):
 
             @slash(description="Kick a member", permissions=["kick_members"])
+            @describe(member="The member to remove")
             async def kick(self, ctx, member: discord.Member):
                 await member.kick()
                 await ctx.respond(f"Kicked {member.display_name}.")
+
+            @slash(description="Admin-only reset", require_admin=True)
+            async def reset(self, ctx):
+                await ctx.respond("Reset done.", ephemeral=True)
 
             @slash(description="Roll a dice", cooldown=5)
             async def roll(self, ctx, sides: int = 6):
@@ -59,6 +121,7 @@ def slash(
         func._slash_desc = description
         func._slash_guild = guild_id
         func._slash_guild_only = guild_only
+        func._slash_require_admin = require_admin
         func._slash_ephemeral = ephemeral
         func._slash_permissions = permissions
         func._slash_cooldown = cooldown
