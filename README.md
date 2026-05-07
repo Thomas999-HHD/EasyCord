@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.1.1-blue)
+![Version](https://img.shields.io/badge/v-5.2.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.1/EasyCord-v5.1.1.zip"`
+1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.2.0/EasyCord-v5.2.0.zip"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,9 +29,42 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md) (5-minute walkthrough).
 
-Release links: [v5.1.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.1) · [Changelog](CHANGELOG.md) · [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.0) · [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0)
+Release links: [v5.2.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.2.0) · [Changelog](CHANGELOG.md) · [v5.1.2 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.2) · [v5.1.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.1) · [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.0) · [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0)
 
-## New in v5.1.1 (Current Release)
+## New in v5.2.0 (Current Release)
+
+**Interaction architecture:**
+- `InteractionRegistry` is now the authoritative EasyCord inventory for slash commands, context menus, components, modals, and autocomplete callbacks while `discord.app_commands.CommandTree` remains the Discord sync backend.
+- Added `@slash_command` as a public compatibility alias for `@slash`.
+- Added `bot.inspect_interactions()`, `bot.plan_command_sync(...)`, and `bot.sync_commands(..., dry_run=True)` for debugging registrations and previewing sync changes before touching Discord.
+- Added dynamic component routes such as `@component("ticket:close:{ticket_id:int}")` with typed variables, TTL metadata, and collision checks.
+
+**Developer debugging:**
+- Added `@autocomplete("option", command="name")` and `easycord.testing.invoke_autocomplete(...)`.
+- Added option validators: `Duration`, `URL`, `Snowflake`, `Range`, `Regex`, and `ChoiceSet`.
+- Added task supervision snapshots via `bot.task_statuses()` plus optional task restart/backoff metadata.
+
+See [`docs/interactions.md`](docs/interactions.md), [`docs/command-sync.md`](docs/command-sync.md), and [`docs/components-dynamic-routing.md`](docs/components-dynamic-routing.md).
+
+## Previous: v5.1.2
+
+**Bug fixes:**
+- `BotConfig.build_bot()` now honors `db_backend="memory"` and uses `guild_id` for guild-scoped command sync.
+- `BotConfig.from_file()` now applies config precedence consistently: environment → file → explicit overrides.
+- Added `ctx.send(...)` as a compatibility alias for `ctx.respond(...)` so bundled plugins and discord.py-style code work as expected.
+- Fixed user-install command contexts for current `discord.py` versions and completed public exports for `command_error` and `describe`.
+
+**Developer experience:**
+- Added `BotConfig` for environment/file-driven startup.
+- Added `easycord.testing.FakeContext` and `invoke()` for command tests without Discord.
+- Added reusable command guards: `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`.
+- Added plugin-scoped `Plugin.on_error()` plus context helpers for app context, premium entitlements, forwarding, silent replies, and suppressing embeds.
+
+**Docs & packaging:**
+- Source distributions now include docs, examples, context notes, and agent notes.
+- Documentation now describes the starter built-in plugin set and explicit plugin loading with `bot.add_plugin(...)`.
+
+## Previous: v5.1.1
 
 **Bug fixes:**
 - Fixed `LevelsPlugin._award_xp` cooldown sentinel — default of `0.0` caused the first-message XP award to be silently blocked on freshly-booted CI runners and any host where `time.monotonic()` starts below `cooldown_seconds`. Changed to `float("-inf")` so a user who has never sent a message always passes the cooldown gate.
@@ -131,7 +164,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.1/EasyCord-v5.1.1.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.2.0/EasyCord-v5.2.0.zip"
 ```
 
 ### Clone and install locally
@@ -146,6 +179,71 @@ pip install .
 
 ```bash
 pip install -e ".[dev]"
+```
+
+## Config-driven startup
+
+Use `BotConfig` to load tokens, database settings, logging, and development
+guild sync from environment variables or JSON:
+
+```python
+from easycord import BotConfig
+
+cfg = BotConfig.from_env()
+bot = cfg.build_bot()
+bot.run(cfg.token)
+```
+
+`DISCORD_GUILD_ID` maps to `guild_id` and makes auto-sync target that one
+guild. `db_backend="memory"` stays in-memory; `db_backend="sqlite"` uses
+`db_path`.
+
+## Command guards and context helpers
+
+Declare common command policies with decorators:
+
+```python
+from easycord import cooldown, install_type, premium_required, require_permissions, slash_command
+
+@slash_command(description="Purge messages")
+@require_permissions("manage_messages")
+@cooldown(rate=2, per=30, bucket="guild")
+async def purge(ctx, count: int = 10):
+    await ctx.send(f"Purged {count} messages.", silent=True)
+
+@slash_command(description="Premium report")
+@install_type(guild=True, user=True)
+@premium_required
+async def report(ctx):
+    await ctx.respond("Premium report ready.", suppress_embeds=True)
+```
+
+Use `ctx.app_context` to inspect where a user-installable command ran,
+`ctx.entitlements` for active Discord premium entitlements, `ctx.forward(...)`
+to forward a message, and `ctx.send(...)` as an alias for `ctx.respond(...)`.
+Built-in command cooldowns are process-local and in-memory; use external
+coordination if you need cooldowns shared across shards or multiple bot
+processes.
+
+Plugins can override `async def on_error(self, ctx, exc)` for plugin-scoped
+error handling. Per-command `@command_error("name")` handlers still run first;
+the global `bot.on_error` handler runs only when neither handles the exception.
+
+## Testing commands
+
+Use `easycord.testing` to test commands without a live Discord connection:
+
+```python
+from easycord.testing import FakeContext, invoke
+
+async def test_command(bot):
+    ctx = await invoke(bot, "ping")
+    assert ctx.last_response == "Pong!"
+
+async def test_handler_directly():
+    ctx = FakeContext.make(is_admin=True)
+    await ctx.respond("ok")
+    ctx.assert_content("ok")
 ```
 
 ## Localization (multi-language support)
@@ -215,7 +313,7 @@ async def ask(ctx, prompt: str):
 
 **Setup:** Install `anthropic` SDK and set `ANTHROPIC_API_KEY` environment variable.
 
-See the AI providers section of [`docs/getting-started.md`](docs/getting-started.md) for examples with OpenAI, Gemini, Groq, Ollama, and custom providers.
+See the AI Orchestration section below for multi-provider examples.
 
 ### Advanced: AI Tool Registration (function calling)
 
@@ -310,7 +408,7 @@ The orchestrator:
 - Event handlers (`@on`) for member joins, message updates, reactions, etc.
 - Per-guild configuration and persistent storage (SQLite or in-memory)
 - Plugins: reusable feature bundles with lifecycle hooks (`on_load`, `on_ready`, `on_unload`)
-- 10+ bundled plugins: moderation, reaction roles, leveling, member logging, auto-responder, starboard, invite tracking, welcome, polls, tags
+- Built-in starter plugins via `load_builtin_plugins()`: welcome, tags, polls, and leveling; load other first-party plugins explicitly with `bot.add_plugin(...)`
 - Rate limiting per-user, per-tool, or per-guild
 - Permission checks (built-in or custom via middleware)
 - Localization: user/guild/default locale fallback

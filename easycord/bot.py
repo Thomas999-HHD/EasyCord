@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import os
 import logging
-from typing import Callable
+from typing import Callable, Any
 
 import discord
 from discord import app_commands
@@ -54,6 +54,10 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
     auto_sync:
         Automatically sync slash commands with Discord on startup (default ``True``).
         Set to ``False`` during development to avoid hitting Discord's sync rate limit.
+    sync_guild_id:
+        Optional development guild ID. When set, auto-sync copies global
+        commands into that guild and syncs the guild command set instead of
+        publishing commands globally.
     """
 
     def __init__(
@@ -61,6 +65,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         *,
         intents: discord.Intents | None = None,
         auto_sync: bool = True,
+        sync_guild_id: int | None = None,
         load_builtin_plugins: bool = False,
         database: EasyCordDatabase | None = None,
         db_backend: str | None = None,
@@ -77,10 +82,12 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
         self.tree = app_commands.CommandTree(self)
         self._auto_sync = auto_sync
+        self._sync_guild_id = sync_guild_id
         self._middleware: list[MiddlewareFn] = []
         self._event_handlers: dict[str, list[Callable]] = {}
         self._plugins: list[Plugin] = []
         self._task_handles: dict[int, list[asyncio.Task]] = {}
+        self._task_statuses: dict[str, dict[str, Any]] = {}
         self._background_tasks: set[asyncio.Task] = set()
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
@@ -112,6 +119,98 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         )
         if load_builtin_plugins:
             self.load_builtin_plugins()
+
+    # ── Interaction inspection and command sync planning ──────
+
+    def inspect_interactions(self) -> dict[str, list[dict[str, Any]]]:
+        """Return registered interactions grouped by EasyCord interaction type."""
+        return self.registry.grouped()
+
+    def plan_command_sync(
+        self,
+        *,
+        guild_id: int | None = None,
+        remote_commands: list[str] | None = None,
+    ) -> dict[str, list[str]]:
+        """Build a command sync diff without contacting Discord by default.
+
+        Pass ``remote_commands`` in tests or after your own fetch to compare the
+        current EasyCord inventory with Discord's current command names.
+        """
+        local_entries = self.registry.iter_syncable(guild_id=guild_id)
+        local_names = [entry.name for entry in local_entries if entry.enabled]
+        remote_names = list(remote_commands or [])
+
+        warnings: list[str] = []
+        duplicates = sorted({name for name in local_names if local_names.count(name) > 1})
+        for name in duplicates:
+            warnings.append(f"Duplicate local command name: {name}")
+
+        local_set = set(local_names)
+        remote_set = set(remote_names)
+        return {
+            "added": sorted(local_set - remote_set),
+            "changed": [],
+            "removed": sorted(remote_set - local_set),
+            "unchanged": sorted(local_set & remote_set),
+            "warnings": warnings,
+        }
+
+    async def sync_commands(
+        self,
+        *,
+        guild_id: int | None = None,
+        dry_run: bool = False,
+        remote_commands: list[str] | None = None,
+        confirm_removals: bool = False,
+    ) -> dict[str, list[str]]:
+        """Plan or execute command sync through ``discord.py``'s CommandTree.
+
+        If the plan detects removals, pass ``confirm_removals=True`` before a
+        non-dry-run sync. This keeps EasyCord from applying a destructive sync
+        without an explicit caller decision.
+        """
+        plan = self.plan_command_sync(
+            guild_id=guild_id,
+            remote_commands=remote_commands,
+        )
+        if dry_run:
+            return plan
+        if plan["removed"] and not confirm_removals:
+            raise RuntimeError(
+                "Command sync would remove remote commands. Re-run with "
+                "confirm_removals=True after reviewing plan_command_sync()."
+            )
+        guild = discord.Object(id=guild_id) if guild_id is not None else None
+        if guild is not None:
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+        else:
+            await self.tree.sync()
+        for entry in self.registry.iter_syncable(guild_id=guild_id):
+            entry.sync_state = "synced"
+        return plan
+
+    def enable_interaction_inspector(self, *, owner_ids: set[int] | None = None) -> None:
+        """Register the optional ``/easycord interactions`` developer command."""
+        group = app_commands.Group(
+            name="easycord",
+            description="EasyCord developer diagnostics",
+        )
+
+        @group.command(name="interactions", description="Show registered EasyCord interactions")
+        async def interactions(interaction: discord.Interaction) -> None:
+            if owner_ids is not None and interaction.user.id not in owner_ids:
+                await interaction.response.send_message("Not authorized.", ephemeral=True)
+                return
+            grouped = self.inspect_interactions()
+            lines = [
+                f"{kind}: {len(entries)}"
+                for kind, entries in grouped.items()
+            ]
+            await interaction.response.send_message("\n".join(lines), ephemeral=True)
+
+        self.tree.add_command(group)
 
     def _create_database(
         self,
@@ -147,7 +246,12 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         if self.db.auto_sync_guilds:
             await self.db.sync_guilds([guild.id for guild in getattr(self, "guilds", [])])
         if self._auto_sync:
-            await self.tree.sync()
+            if self._sync_guild_id is not None:
+                guild = discord.Object(id=self._sync_guild_id)
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+            else:
+                await self.tree.sync()
         for plugin in self._plugins:
             await plugin.on_load()
             self._start_plugin_tasks(plugin)

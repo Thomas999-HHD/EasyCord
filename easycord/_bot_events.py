@@ -97,6 +97,42 @@ class _EventsMixin:
         self._error_handler = func
         return func
 
+    async def _dispatch_framework_error(
+        self,
+        exc: Exception,
+        ctx=None,
+        plugin_name: str | None = None,
+        plugin_instance=None,
+    ) -> None:
+        """Route an exception through plugin and global error handlers."""
+        if plugin_instance is None and plugin_name is not None:
+            for p in getattr(self, "_plugins", []):
+                if type(p).__name__ == plugin_name:
+                    plugin_instance = p
+                    break
+
+        if plugin_instance is not None:
+            from .plugin import Plugin as _Plugin
+            if isinstance(plugin_instance, _Plugin):
+                plugin_on_error = type(plugin_instance).on_error
+                base_on_error = _Plugin.on_error
+                if plugin_on_error is not base_on_error:
+                    try:
+                        await plugin_instance.on_error(ctx, exc)
+                    except Exception as handler_exc:
+                        logger.exception("Error in plugin on_error handler", exc_info=handler_exc)
+                    return
+
+        error_handler = getattr(self, "_error_handler", None)
+        if error_handler is not None:
+            try:
+                await error_handler(ctx, exc)
+            except Exception as handler_exc:
+                logger.exception("Error in global on_error handler", exc_info=handler_exc)
+            return
+
+        logger.exception("Unhandled exception in framework interaction or task", exc_info=exc)
+
     # ── User & member lookup ──────────────────────────────────
 
     async def fetch_member(self, guild_id: int, user_id: int) -> discord.Member:
@@ -153,24 +189,31 @@ class _EventsMixin:
 
     # ── Component routing ─────────────────────────────────────
 
-    def _register_component_handler(self, custom_id: str, func: Callable, source_plugin: str | None = None) -> None:
+    def _register_component_handler(
+        self,
+        custom_id: str,
+        func: Callable,
+        source_plugin: str | None = None,
+        *,
+        ttl: float | None = None,
+    ) -> None:
         """Internal helper to register a component handler with collision detection."""
-        self.registry.register_component(custom_id, func, source_plugin) # type: ignore[attr-defined]
+        self.registry.register_component(custom_id, func, source_plugin, ttl=ttl) # type: ignore[attr-defined]
 
     def _register_modal_handler(self, custom_id: str, func: Callable, source_plugin: str | None = None) -> None:
         """Internal helper to register a modal handler with collision detection."""
         self.registry.register_modal(custom_id, func, source_plugin) # type: ignore[attr-defined]
 
-    def component(self, id_or_func=None) -> Callable:
+    def component(self, id_or_func=None, *, ttl: float | None = None) -> Callable:
         """Decorator that registers a persistent component (button / select-menu) handler."""
         if callable(id_or_func):
-            self._register_component_handler(id_or_func.__name__, id_or_func)
+            self._register_component_handler(id_or_func.__name__, id_or_func, ttl=ttl)
             return id_or_func
 
         custom_id: str = id_or_func  # type: ignore[assignment]
 
         def decorator(func: Callable) -> Callable:
-            self._register_component_handler(custom_id, func)
+            self._register_component_handler(custom_id, func, ttl=ttl)
             return func
 
         return decorator
@@ -196,7 +239,7 @@ class _EventsMixin:
 
         custom_id: str = (interaction.data or {}).get("custom_id", "")  # type: ignore[union-attr]
 
-        entry = self.registry.components.get(custom_id)  # type: ignore[attr-defined]
+        entry, parsed = self.registry.resolve_component(custom_id)  # type: ignore[attr-defined]
         handler = entry["func"] if entry else None
         suffix: str | None = None
 
@@ -213,10 +256,16 @@ class _EventsMixin:
         ctx = Context(interaction)
 
         async def invoke() -> None:
-            if suffix is not None:
-                await handler(ctx, suffix)
-            else:
-                await handler(ctx)
+            try:
+                if parsed:
+                    await handler(ctx, **parsed)
+                elif suffix is not None:
+                    await handler(ctx, suffix)
+                else:
+                    await handler(ctx)
+            except Exception as exc:
+                plugin_name = entry.get("source") if entry else None
+                await self._dispatch_framework_error(exc, ctx=ctx, plugin_name=plugin_name)
 
         await build_chain(ctx, invoke, self._middleware)()  # type: ignore[attr-defined]
 
@@ -242,7 +291,11 @@ class _EventsMixin:
                 data[comp["custom_id"]] = comp["value"]
 
         async def invoke() -> None:
-            await handler(ctx, data)
+            try:
+                await handler(ctx, data)
+            except Exception as exc:
+                plugin_name = entry.get("source") if entry else None
+                await self._dispatch_framework_error(exc, ctx=ctx, plugin_name=plugin_name)
 
         await build_chain(ctx, invoke, self._middleware)()  # type: ignore[attr-defined]
 

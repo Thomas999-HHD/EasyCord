@@ -177,6 +177,46 @@ class TestBaseContextRespond:
         )
 
     @pytest.mark.asyncio
+    async def test_respond_silent_and_suppress_embeds(self) -> None:
+        interaction = _mock_interaction()
+        ctx = BaseContext(interaction)
+        await ctx.respond("Quiet", silent=True, suppress_embeds=True)
+        interaction.response.send_message.assert_called_once_with(
+            "Quiet",
+            ephemeral=False,
+            embed=None,
+            silent=True,
+            suppress_embeds=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_respond_followup_silent_and_suppress_embeds(self) -> None:
+        interaction = _mock_interaction()
+        ctx = BaseContext(interaction)
+        await ctx.respond("First")
+        await ctx.respond("Quiet", silent=True, suppress_embeds=True)
+        interaction.followup.send.assert_called_once_with(
+            "Quiet",
+            ephemeral=False,
+            embed=None,
+            silent=True,
+            suppress_embeds=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_send_alias_uses_respond_flow(self) -> None:
+        interaction = _mock_interaction()
+        ctx = BaseContext(interaction)
+        await ctx.send("First")
+        await ctx.send("Second")
+        interaction.response.send_message.assert_called_once_with(
+            "First", ephemeral=False, embed=None
+        )
+        interaction.followup.send.assert_called_once_with(
+            "Second", ephemeral=False, embed=None
+        )
+
+    @pytest.mark.asyncio
     async def test_defer_sets_responded(self) -> None:
         interaction = _mock_interaction()
         ctx = BaseContext(interaction)
@@ -211,6 +251,21 @@ class TestContext:
         call_kwargs = interaction.response.send_message.call_args[1]
         assert call_kwargs["embed"] is not None
         assert call_kwargs["embed"].title == "Title"
+
+    @pytest.mark.asyncio
+    async def test_forward_fallback_noops_for_empty_message(self) -> None:
+        class LegacyMessage:
+            content = ""
+            embeds = []
+            attachments = []
+
+        channel = MagicMock()
+        channel.send = AsyncMock()
+        ctx = Context(_mock_interaction())
+
+        await ctx.forward(LegacyMessage(), channel=channel)
+
+        channel.send.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_ai_no_provider_raises(self) -> None:

@@ -26,8 +26,21 @@ class _PluginsMixin:
         parent: an ``app_commands.Group`` — when supplied, slash commands are
         added to the group instead of the command tree (used by add_group).
         """
+        plugin_name = type(plugin).__name__
+        standalone_autocomplete: dict[str, dict[str, Callable]] = {}
+        for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
+            if getattr(method, "_is_autocomplete", False):
+                standalone_autocomplete.setdefault(
+                    method._autocomplete_command,
+                    {},
+                )[method._autocomplete_option] = method
+
         for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if getattr(method, "_is_slash", False):
+                autocomplete_handlers = {
+                    **getattr(method, "_slash_autocomplete", {}),
+                    **standalone_autocomplete.get(method._slash_name, {}),
+                }
                 self._register_slash(
                     method,
                     name=method._slash_name,
@@ -38,12 +51,16 @@ class _PluginsMixin:
                     ephemeral=getattr(method, "_slash_ephemeral", False),
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
-                    autocomplete=getattr(method, "_slash_autocomplete", None),
+                    cooldown_rate=getattr(method, "_slash_cooldown_rate", 1),
+                    cooldown_bucket=getattr(method, "_slash_cooldown_bucket", "user"),
+                    premium_required=getattr(method, "_slash_premium_required", False),
+                    autocomplete=autocomplete_handlers,
                     choices=getattr(method, "_slash_choices", None),
                     nsfw=getattr(method, "_slash_nsfw", False),
                     allowed_contexts=getattr(method, "_slash_allowed_contexts", None),
                     allowed_installs=getattr(method, "_slash_allowed_installs", None),
                     parent=parent,
+                    source_plugin=plugin_name,
                 )
                 for alias in getattr(method, "_slash_aliases", []):
                     self._register_slash(
@@ -56,12 +73,16 @@ class _PluginsMixin:
                         ephemeral=getattr(method, "_slash_ephemeral", False),
                         permissions=getattr(method, "_slash_permissions", None),
                         cooldown=getattr(method, "_slash_cooldown", None),
-                        autocomplete=getattr(method, "_slash_autocomplete", None),
+                        cooldown_rate=getattr(method, "_slash_cooldown_rate", 1),
+                        cooldown_bucket=getattr(method, "_slash_cooldown_bucket", "user"),
+                        premium_required=getattr(method, "_slash_premium_required", False),
+                        autocomplete=autocomplete_handlers,
                         choices=getattr(method, "_slash_choices", None),
                         nsfw=getattr(method, "_slash_nsfw", False),
                         allowed_contexts=getattr(method, "_slash_allowed_contexts", None),
                         allowed_installs=getattr(method, "_slash_allowed_installs", None),
                         parent=parent,
+                        source_plugin=plugin_name,
                     )
             if getattr(method, "_is_command_error", False):
                 self._command_error_handlers[method._command_error_for] = method
@@ -75,6 +96,10 @@ class _PluginsMixin:
                     name=method._context_menu_name,
                     menu_type=discord.AppCommandType.user,
                     guild_id=method._context_menu_guild,
+                    nsfw=getattr(method, "_context_menu_nsfw", False),
+                    allowed_contexts=getattr(method, "_context_menu_allowed_contexts", None),
+                    allowed_installs=getattr(method, "_context_menu_allowed_installs", None),
+                    source_plugin=plugin_name,
                 )
             if getattr(method, "_is_message_command", False):
                 self._register_context_menu(
@@ -82,17 +107,26 @@ class _PluginsMixin:
                     name=method._context_menu_name,
                     menu_type=discord.AppCommandType.message,
                     guild_id=method._context_menu_guild,
+                    nsfw=getattr(method, "_context_menu_nsfw", False),
+                    allowed_contexts=getattr(method, "_context_menu_allowed_contexts", None),
+                    allowed_installs=getattr(method, "_context_menu_allowed_installs", None),
+                    source_plugin=plugin_name,
                 )
             if getattr(method, "_is_component", False):
                 custom_id = method._component_id
                 if getattr(method, "_component_scoped", True):
                     custom_id = plugin.id(custom_id)
-                self._register_component_handler(custom_id, method, source_plugin=type(plugin).__name__)
+                self._register_component_handler(
+                    custom_id,
+                    method,
+                    source_plugin=plugin_name,
+                    ttl=getattr(method, "_component_ttl", None),
+                )
             if getattr(method, "_is_modal", False):
                 custom_id = method._modal_id
                 if getattr(method, "_modal_scoped", True):
                     custom_id = plugin.id(custom_id)
-                self._register_modal_handler(custom_id, method, source_plugin=type(plugin).__name__)
+                self._register_modal_handler(custom_id, method, source_plugin=plugin_name)
             if getattr(method, "_is_ai_tool", False):
                 tool_name = method._ai_tool_name
                 rate_limit = getattr(method, "_ai_tool_rate_limit", None)
@@ -227,12 +261,16 @@ class _PluginsMixin:
                 if getattr(method, "_modal_scoped", True):
                     custom_id = plugin.id(custom_id)
                 self.registry.modals.pop(custom_id, None)
+        self.registry.unregister_plugin(type(plugin).__name__)
         for handle in self._task_handles.pop(id(plugin), []):
             handle.cancel()
             try:
                 await handle
             except asyncio.CancelledError:
                 pass
+        for key, status in getattr(self, "_task_statuses", {}).items():
+            if key.startswith(f"{type(plugin).__name__}."):
+                status["state"] = "stopped"
         await plugin.on_unload()
 
     async def reload_plugin(self, name: str) -> None:
@@ -261,23 +299,66 @@ class _PluginsMixin:
         handles = []
         for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if getattr(method, "_is_task", False):
+                key = f"{type(plugin).__name__}.{method.__name__}"
+                self._task_statuses.setdefault(
+                    key,
+                    {
+                        "state": "stopped",
+                        "restart_count": 0,
+                        "last_error": None,
+                        "plugin": type(plugin).__name__,
+                        "task": method.__name__,
+                    },
+                )
                 handle = asyncio.create_task(
-                    self._run_task(method, method._task_interval)
+                    self._run_task(
+                        method,
+                        method._task_interval,
+                        key=key,
+                        restart=getattr(method, "_task_restart", False),
+                        backoff=getattr(method, "_task_backoff", 1.0),
+                    )
                 )
                 handles.append(handle)
         if handles:
             self._task_handles[id(plugin)] = handles
 
-    @staticmethod
-    async def _run_task(method: Callable, interval: float) -> None:
+    async def _run_task(
+        self,
+        method: Callable,
+        interval: float,
+        *,
+        key: str,
+        restart: bool,
+        backoff: float,
+    ) -> None:
         """Run a plugin task method in a loop, sleeping between calls."""
+        status = self._task_statuses[key]
+        status["state"] = "running"
         while True:
             try:
                 await method()
             except asyncio.CancelledError:
+                status["state"] = "stopped"
                 raise
-            except Exception:
-                logger.exception(
-                    "Error in task %r", getattr(method, "__name__", method)
-                )
+            except Exception as exc:
+                status["state"] = "failed"
+                status["last_error"] = repr(exc)
+                plugin_name = status.get("plugin")
+                if isinstance(plugin_name, str):
+                    await self._dispatch_framework_error(exc, ctx=None, plugin_name=plugin_name)
+                else:
+                    await self._dispatch_framework_error(exc, ctx=None, plugin_instance=getattr(method, "__self__", None))
+                if not restart:
+                    return
+                status["restart_count"] += 1
+                await asyncio.sleep(backoff)
+                status["state"] = "running"
             await asyncio.sleep(interval)
+
+    def task_statuses(self) -> dict[str, dict[str, object]]:
+        """Return status snapshots for plugin background tasks."""
+        return {
+            key: dict(value)
+            for key, value in getattr(self, "_task_statuses", {}).items()
+        }
