@@ -18,6 +18,13 @@
 - Exceptions from these paths now route through `plugin.on_error` first, then `bot.on_error`, with logging as fallback.
 - Autocomplete failures now safely return an empty suggestion list instead of bubbling raw exceptions.
 - Task cancellation during plugin unload is treated as a normal lifecycle event, not a crash.
+- Fixed legacy component-prefix fallback matches dropping their registry entry and causing the error router to skip plugin-scoped handlers.
+- Replaced blanket `TypeError` handling in autocomplete callbacks with precise signature inspection (`inspect.signature`) at registration time.
+- Updated `InteractionRegistry` to compare parsed literal/type structural segments (ignoring named regex groups) when rejecting dynamic component collisions.
+- Refactored Plugin instance tracking to use unique `_instance_id` values instead of class names, preventing cross-pollution when loading multiple instances of the same plugin class.
+- Fixed config override evaluation for `auto_sync` so `"false"` strings parse as `False` instead of evaluating to `True`.
+- Updated choice validators to sort mixed-type choice sets using `key=str` to prevent crash on mismatched types.
+- Bumped minimum required `discord.py` version to `>=2.4.0` in `pyproject.toml` for `AppInstallationType` decorator support.
 
 > v5.2.0 focuses on framework architecture and developer experience. It makes EasyCord’s interaction system inspectable, safer to reload, easier to sync, and more consistent under failure.
 
