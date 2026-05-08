@@ -26,11 +26,13 @@ EasyCord is a Discord bot framework layered as follows:
 
 **Bot core** — `bot.py` defines the `Bot` class via multiple inheritance: `discord.Client` + four mixins (`_bot_commands.py`, `_bot_events.py`, `_bot_guild.py`, `_bot_plugins.py`). Adding bot-level behavior means adding to one of these mixin files.
 
-**Context** — `context.py` + `_context_channels.py`, `_context_moderation.py`, `_context_ui.py`. This is the user-facing API inside command handlers (`ctx.respond()`, `ctx.send_embed()`, etc.).
+**Context** — `context.py` + `_context_channels.py`, `_context_moderation.py`, `_context_ui.py`. This is the user-facing API inside command handlers (`ctx.respond()`, `ctx.send()`, `ctx.send_embed()`, etc.).
 
-**Decorators** — `decorators.py` provides `@slash`, `@on`, `@component`, `@modal`, `@message_command`, `@user_command`, `@task`, `@ai_tool`. These are the primary extension points for bot authors.
+**Decorators** — `decorators.py` provides `@slash` / `@slash_command`, `@autocomplete`, `@on`, `@component`, `@modal`, `@message_command`, `@user_command`, `@task`, `@ai_tool`, `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`. These are the primary extension points for bot authors.
 
-**Plugin system** — `plugin.py` defines `Plugin`. Bundled plugins live in `plugins/` (moderation, leveling, tags, welcome, logging, etc.). Plugins register their own commands/events and are loaded via `bot.load_builtin_plugins()` or `bot.load_plugin()`.
+**Interaction registry** — `registry.py` is the authoritative EasyCord inventory for slash commands, context menus, components, modals, and autocomplete callbacks. `discord.app_commands.CommandTree` remains the Discord sync backend.
+
+**Plugin system** — `plugin.py` defines `Plugin`. Bundled plugins live in `plugins/`. `bot.load_builtin_plugins()` loads the starter set (welcome, tags, polls, levels). Load additional plugins explicitly with `bot.add_plugin(...)`.
 
 **Database** — `database.py` provides `SQLiteDatabase` and `MemoryDatabase` with per-guild namespacing. `GuildRecord` is the typed row abstraction.
 
@@ -53,8 +55,8 @@ EasyCord is a Discord bot framework layered as follows:
 - Cooldown sentinels default to `float("-inf")`, not `0.0` — ensures first-message events pass on fresh runners.
 - CI workflows pin to `actions/checkout@v4` and `actions/setup-python@v5`.
 
-## Branch / repo state (as of 2026-05-06)
+## Branch / repo state
 
-- Default branch: `main`. `master` is kept in sync with `main`.
-- Current stable tip: `4bcf1cf` — both `main` and `master` point here.
-- 411 tests passing. CI green.
+- Verify current topology with `git status --short --branch` and `git log --oneline -5 --decorate`.
+- As of 2026-05-07 locally: branch `master`, local `HEAD` at `85295d3`, `origin/main` and `origin/master` at `68c954b`, and tag `v5.1.1` at `6a13951`.
+- Latest local verification for this work: `pytest tests/` -> 472 passed; `python -m compileall -q easycord tests` -> passed; `ruff` unavailable locally.

@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.1/EasyCord-v5.1.1.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.2.0/EasyCord-v5.2.0.zip"
 ```
 
 Or clone and install locally:
@@ -36,6 +36,26 @@ Save this as `bot.py` and run it. The slash command `/ping` will appear in Disco
 
 ---
 
+## Config-driven startup
+
+Use `BotConfig` when you want environment variables or a JSON file to define
+startup settings:
+
+```python
+from easycord import BotConfig
+
+cfg = BotConfig.from_env()
+bot = cfg.build_bot()
+bot.run(cfg.token)
+```
+
+`DISCORD_GUILD_ID` is used as a development sync target, so commands sync to
+that guild instead of globally. JSON files use the same field names:
+`token`, `guild_id`, `db_backend`, `db_path`, `auto_sync`, `log_level`, and
+`extra`.
+
+---
+
 ## Adding your first plugin
 
 Split features into plugins as the bot grows. A plugin is a class that groups
@@ -62,10 +82,11 @@ bot.run("YOUR_TOKEN")
 
 ---
 
-## Loading all bundled plugins
+## Loading bundled plugins
 
-EasyCord ships with 10+ bundled plugins (moderation, leveling, welcome, polls,
-tags, starboard, and more). Load them all in one call:
+EasyCord ships multiple first-party plugins in `easycord.plugins`.
+Setting `load_builtin_plugins=True` loads the starter set: welcome, tags,
+polls, and leveling.
 
 ```python
 from easycord import Bot
@@ -78,11 +99,12 @@ Or selectively load the ones you need:
 
 ```python
 from easycord import Bot
-from easycord.plugins import LevelsPlugin, ModerationPlugin, WelcomePlugin
+from easycord.plugins import LevelsPlugin, PollsPlugin, TagsPlugin, WelcomePlugin
 
 bot = Bot()
 bot.add_plugin(LevelsPlugin(xp_per_message=15, cooldown_seconds=45))
-bot.add_plugin(ModerationPlugin())
+bot.add_plugin(PollsPlugin())
+bot.add_plugin(TagsPlugin())
 bot.add_plugin(WelcomePlugin())
 bot.run("YOUR_TOKEN")
 ```
@@ -134,6 +156,54 @@ async def ping(ctx):
 ```
 
 EasyCord resolves the locale automatically: user locale → guild locale → default.
+
+---
+
+## Command guards and responses
+
+Stack reusable guards with `@slash`:
+
+```python
+from easycord import cooldown, premium_required, require_permissions, slash
+
+@slash(description="Clean up messages")
+@require_permissions("manage_messages")
+@cooldown(rate=2, per=30, bucket="guild")
+async def cleanup(ctx, count: int = 10):
+    await ctx.send(f"Cleaned {count} messages.", silent=True)
+
+@slash(description="Premium feature")
+@premium_required
+async def exclusive(ctx):
+    await ctx.respond("Thanks for supporting the bot!", suppress_embeds=True)
+```
+
+Use `@install_type(guild=True, user=True)` for Discord user-installable
+commands. Inside handlers, `ctx.app_context` exposes the Discord app command
+context and `ctx.entitlements` exposes active premium entitlements.
+
+Plugins can override `async def on_error(self, ctx, exc)` for plugin-scoped
+error handling after optional per-command handlers decorated with
+`@command_error("command_name")` and before the global `bot.on_error` handler.
+
+---
+
+## Testing commands
+
+`easycord.testing` lets you test command handlers without connecting to Discord:
+
+```python
+from easycord.testing import FakeContext, invoke
+
+async def test_ping(bot):
+    ctx = await invoke(bot, "ping")
+    assert ctx.last_response == "Pong!"
+
+async def test_handler_directly():
+    ctx = FakeContext.make(is_admin=True)
+    await ctx.respond("ok")
+    ctx.assert_content("ok")
+```
 
 ---
 

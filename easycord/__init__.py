@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.1.1"
+__version__ = "5.2.0"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -26,7 +26,8 @@ from .composer import Composer
 from .context import Context
 from .context_builder import ContextBuilder
 from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatabase, SQLiteDatabase
-from .decorators import ai_tool, component, message_command, modal, on, slash, task, user_command
+from .config import BotConfig
+from .decorators import ai_tool, autocomplete, command_error, component, cooldown, describe, install_type, message_command, modal, on, premium_required, require_permissions, slash, slash_command, task, user_command
 from .i18n import LocalizationManager
 from .group import SlashGroup
 from .plugin import Plugin
@@ -38,6 +39,7 @@ from .conversation_memory import Conversation, ConversationMemory, ConversationT
 from .helpers import ConfigHelpers, ContextHelpers, RateLimitHelpers, ToolHelpers
 from .managers import FrameworkManager, SecurityManager
 from .utils import EasyEmbed, Paginator
+from .validators import ChoiceSet, Duration, Range, Regex, Snowflake, URL, ValidationError
 
 _PROVIDER_NAMES = frozenset({
     "AIProvider",
@@ -66,8 +68,12 @@ __all__ = [
     "AnthropicProvider",
     "AuditLog",
     "ai_tool",
+    "autocomplete",
     "Bot",
+    "BotConfig",
     "ButtonRowBuilder",
+    "ChoiceSet",
+    "command_error",
     "Composer",
     "ConfigHelpers",
     "Conversation",
@@ -76,6 +82,8 @@ __all__ = [
     "Context",
     "ContextBuilder",
     "ContextHelpers",
+    "describe",
+    "Duration",
     "EmbedBuilder",
     "EmbedCard",
     "DatabaseConfig",
@@ -89,11 +97,13 @@ __all__ = [
     "OllamaProvider",
     "OpenAIProvider",
     "component",
+    "cooldown",
     "ErrorEmbed",
     "EasyEmbed",
     "FrameworkManager",
     "GuildRecord",
     "InfoEmbed",
+    "install_type",
     "ModalBuilder",
     "message_command",
     "modal",
@@ -103,9 +113,13 @@ __all__ = [
     "Plugin",
     "Paginator",
     "ProviderStrategy",
+    "premium_required",
     "RateLimit",
     "RateLimitHelpers",
+    "Range",
+    "Regex",
     "RunContext",
+    "require_permissions",
     "SelectMenuBuilder",
     "SlashGroup",
     "SuccessEmbed",
@@ -119,6 +133,8 @@ __all__ = [
     "ToolSafety",
     "TogetherAIProvider",
     "slash",
+    "slash_command",
+    "Snowflake",
     "on",
     "SQLiteDatabase",
     "WarningEmbed",
@@ -126,4 +142,6 @@ __all__ = [
     "task",
     "ServerConfig",
     "ServerConfigStore",
+    "URL",
+    "ValidationError",
 ]

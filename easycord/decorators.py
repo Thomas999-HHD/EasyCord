@@ -3,7 +3,210 @@ from __future__ import annotations
 
 from typing import Callable
 
+import discord
+
 from easycord.tools import ToolSafety
+
+
+def describe(**descriptions: str) -> Callable:
+    """Attach per-parameter descriptions to a slash command.
+
+    Discord shows these in the command picker next to each option.
+    Call this as a decorator on the same method as ``@slash``; order does not matter.
+
+    Example::
+
+        class ModPlugin(Plugin):
+
+            @slash(description="Kick a member", permissions=["kick_members"])
+            @describe(member="The member to remove", reason="Why they are being kicked")
+            async def kick(self, ctx, member: discord.Member, reason: str = ""):
+                await member.kick(reason=reason)
+                await ctx.respond(f"Kicked {member.display_name}.")
+    """
+    def decorator(func: Callable) -> Callable:
+        if not hasattr(func, "__discord_app_commands_param_description__"):
+            func.__discord_app_commands_param_description__ = {}
+        func.__discord_app_commands_param_description__.update(descriptions)
+        return func
+    return decorator
+
+
+def command_error(command_name: str) -> Callable:
+    """Mark a Plugin method as the error handler for a specific slash command.
+
+    When the named command raises an unhandled exception, this method is called
+    instead of the global ``@bot.on_error`` handler.  The method receives
+    ``(ctx, exc)`` — the same signature as the global handler.
+
+    Example::
+
+        class MathPlugin(Plugin):
+
+            @slash(description="Divide two numbers")
+            async def divide(self, ctx, a: int, b: int):
+                await ctx.respond(str(a // b))
+
+            @command_error("divide")
+            async def divide_error(self, ctx, exc):
+                await ctx.respond("Cannot divide by zero.", ephemeral=True)
+    """
+    def decorator(func: Callable) -> Callable:
+        func._is_command_error = True
+        func._command_error_for = command_name
+        return func
+    return decorator
+
+
+def install_type(
+    *,
+    guild: bool = True,
+    user: bool = False,
+) -> Callable:
+    """Control where a command can be installed and invoked.
+
+    Use this alongside ``@slash`` to mark a command as user-installable,
+    guild-only, or both.  Builds the ``allowed_contexts`` and
+    ``allowed_installs`` objects that Discord requires for user-app support.
+
+    Example::
+
+        class MyPlugin(Plugin):
+
+            @slash(description="Works anywhere")
+            @install_type(guild=True, user=True)
+            async def info(self, ctx):
+                await ctx.respond(f"App context: {ctx.app_context}")
+    """
+
+    def decorator(func: Callable) -> Callable:
+        installs = discord.AppInstallationType(guild=guild, user=user)
+        contexts = discord.AppCommandContext(
+            guild=guild,
+            dm_channel=user,
+            private_channel=user,
+        )
+        func._slash_allowed_installs = installs
+        func._slash_allowed_contexts = contexts
+        return func
+
+    return decorator
+
+
+def cooldown(
+    rate: int = 1,
+    *,
+    per: float,
+    bucket: str = "user",
+) -> Callable:
+    """Rate-limit a slash command with a named bucket.
+
+    Stack this below ``@slash``. The inline ``cooldown=`` parameter on
+    ``@slash`` takes precedence when both are provided.
+
+    Parameters
+    ----------
+    rate:
+        Number of uses allowed per window.
+    per:
+        Window length in seconds.
+    bucket:
+        ``"user"`` (default) — separate cooldown per user.
+        ``"guild"`` — shared cooldown across the whole server.
+        ``"global"`` — shared cooldown for everyone, everywhere.
+
+    Example::
+
+        @slash(description="Roll a dice")
+        @cooldown(rate=1, per=5.0, bucket="user")
+        async def roll(self, ctx):
+            import random
+            await ctx.respond(str(random.randint(1, 6)))
+    """
+
+    if rate < 1:
+        raise ValueError("cooldown rate must be at least 1")
+    if per <= 0:
+        raise ValueError("cooldown window must be greater than zero")
+    if bucket not in {"user", "guild", "global"}:
+        raise ValueError("cooldown bucket must be 'user', 'guild', or 'global'")
+
+    def decorator(func: Callable) -> Callable:
+        func._slash_cooldown = per
+        func._slash_cooldown_rate = rate
+        func._slash_cooldown_bucket = bucket
+        return func
+
+    return decorator
+
+
+def require_permissions(*permissions: str) -> Callable:
+    """Require specific Discord permissions to run a slash command.
+
+    Stack this below ``@slash``. The inline ``permissions=`` list on
+    ``@slash`` takes precedence when both are provided.
+
+    Permission names match ``discord.Permissions`` attribute names,
+    e.g. ``"kick_members"``, ``"manage_messages"``.
+
+    Example::
+
+        @slash(description="Purge messages")
+        @require_permissions("manage_messages")
+        async def purge(self, ctx, count: int = 10):
+            ...
+    """
+
+    def decorator(func: Callable) -> Callable:
+        func._slash_permissions = list(permissions)
+        return func
+
+    return decorator
+
+
+def premium_required(func: Callable) -> Callable:
+    """Gate a slash command behind an active Discord premium entitlement.
+
+    If the invoking user has no active entitlements the command is blocked with
+    an ephemeral error.  Use this for commands that require a premium
+    subscription via Discord's monetization features.
+
+    Example::
+
+        class MyPlugin(Plugin):
+
+            @slash(description="Premium-only feature")
+            @premium_required
+            async def exclusive(self, ctx):
+                await ctx.respond("Welcome, premium member!")
+    """
+    func._slash_premium_required = True
+    return func
+
+
+def autocomplete(option_name: str, *, command: str | None = None) -> Callable:
+    """Register an autocomplete callback for a slash command option.
+
+    Stack this with ``@slash``. The callback receives
+    ``(ctx, current, options)`` where ``current`` is the user's current input
+    and ``options`` contains the partial option namespace Discord supplied.
+    """
+
+    if not option_name:
+        raise ValueError("autocomplete option name must be non-empty")
+
+    def decorator(func: Callable) -> Callable:
+        if command is not None:
+            func._is_autocomplete = True
+            func._autocomplete_option = option_name
+            func._autocomplete_command = command
+            return func
+        callbacks = dict(getattr(func, "_slash_autocomplete_handlers", {}))
+        callbacks[option_name] = func
+        func._slash_autocomplete_handlers = callbacks
+        return func
+
+    return decorator
 
 
 def slash(
@@ -12,6 +215,7 @@ def slash(
     description: str = "No description provided.",
     guild_id: int | None = None,
     guild_only: bool = False,
+    require_admin: bool = False,
     ephemeral: bool = False,
     permissions: list[str] | None = None,
     cooldown: float | None = None,
@@ -22,6 +226,10 @@ def slash(
 ) -> Callable:
     """Mark a Plugin method as a slash command.
 
+    Stack with ``@cooldown``, ``@require_permissions``, ``@install_type``, and
+    ``@premium_required`` for reusable command guards. Explicit ``permissions=``
+    and ``cooldown=`` values passed here take precedence over stacked metadata.
+
     Parameters
     ----------
     name:
@@ -30,10 +238,16 @@ def slash(
         Short description shown in the Discord command picker.
     guild_id:
         Register to one specific server only (instant; global takes up to 1 hour).
+    guild_only:
+        Reject the command with an ephemeral error if used outside a server.
+    require_admin:
+        Shorthand for ``permissions=["administrator"]``. The invoking member must
+        have the Administrator permission; rejects with an ephemeral error otherwise.
     permissions:
         List of ``discord.Permissions`` attribute names required to run the command
         (e.g. ``["kick_members"]``). Responds ephemerally and skips the command if
-        any are missing.
+        any are missing.  Use ``require_admin=True`` as a convenient shorthand when
+        administrator access is the only requirement.
     cooldown:
         Per-user cooldown in seconds. Blocks the command ephemerally until the
         window expires.
@@ -43,9 +257,14 @@ def slash(
         class MyPlugin(Plugin):
 
             @slash(description="Kick a member", permissions=["kick_members"])
+            @describe(member="The member to remove")
             async def kick(self, ctx, member: discord.Member):
                 await member.kick()
                 await ctx.respond(f"Kicked {member.display_name}.")
+
+            @slash(description="Admin-only reset", require_admin=True)
+            async def reset(self, ctx):
+                await ctx.respond("Reset done.", ephemeral=True)
 
             @slash(description="Roll a dice", cooldown=5)
             async def roll(self, ctx, sides: int = 6):
@@ -59,19 +278,30 @@ def slash(
         func._slash_desc = description
         func._slash_guild = guild_id
         func._slash_guild_only = guild_only
+        func._slash_require_admin = require_admin
         func._slash_ephemeral = ephemeral
-        func._slash_permissions = permissions
-        func._slash_cooldown = cooldown
+        # Respect values already set by stacked decorators (@cooldown, @require_permissions)
+        func._slash_permissions = permissions if permissions is not None else getattr(func, "_slash_permissions", None)
+        func._slash_cooldown = cooldown if cooldown is not None else getattr(func, "_slash_cooldown", None)
+        func._slash_cooldown_rate = getattr(func, "_slash_cooldown_rate", 1)
+        func._slash_cooldown_bucket = getattr(func, "_slash_cooldown_bucket", "user")
         func._slash_autocomplete = autocomplete or {}
+        func._slash_autocomplete_handlers = {
+            **getattr(func, "_slash_autocomplete_handlers", {}),
+        }
         func._slash_choices = choices or {}
         func._slash_aliases = aliases or []
         func._slash_rate_limit = rate_limit
         func._slash_nsfw = False
-        func._slash_allowed_contexts = None
-        func._slash_allowed_installs = None
+        func._slash_allowed_contexts = getattr(func, "_slash_allowed_contexts", None)
+        func._slash_allowed_installs = getattr(func, "_slash_allowed_installs", None)
+        func._slash_premium_required = getattr(func, "_slash_premium_required", False)
         return func
 
     return decorator
+
+
+slash_command = slash
 
 
 def task(
@@ -79,6 +309,8 @@ def task(
     seconds: float = 0,
     minutes: float = 0,
     hours: float = 0,
+    restart: bool = False,
+    backoff: float = 1.0,
 ) -> Callable:
     """Mark a Plugin method as a repeating background task.
 
@@ -96,10 +328,14 @@ def task(
     interval = seconds + minutes * 60.0 + hours * 3600.0
     if interval <= 0:
         raise ValueError("task interval must be greater than zero")
+    if backoff < 0:
+        raise ValueError("task backoff must be non-negative")
 
     def decorator(func: Callable) -> Callable:
         func._is_task = True
         func._task_interval = interval
+        func._task_restart = restart
+        func._task_backoff = backoff
         return func
 
     return decorator
@@ -149,12 +385,18 @@ def user_command(
     name: str | None = None,
     *,
     guild_id: int | None = None,
+    nsfw: bool = False,
+    allowed_contexts: discord.AppCommandContext | None = None,
+    allowed_installs: discord.AppInstallationType | None = None,
 ) -> Callable:
     """Mark a Plugin method as a right-click User context menu command."""
     def decorator(func: Callable) -> Callable:
         func._is_user_command = True
         func._context_menu_name = name or func.__name__
         func._context_menu_guild = guild_id
+        func._context_menu_nsfw = nsfw
+        func._context_menu_allowed_contexts = allowed_contexts
+        func._context_menu_allowed_installs = allowed_installs
         return func
     return decorator
 
@@ -163,22 +405,32 @@ def message_command(
     name: str | None = None,
     *,
     guild_id: int | None = None,
+    nsfw: bool = False,
+    allowed_contexts: discord.AppCommandContext | None = None,
+    allowed_installs: discord.AppInstallationType | None = None,
 ) -> Callable:
     """Mark a Plugin method as a right-click Message context menu command."""
     def decorator(func: Callable) -> Callable:
         func._is_message_command = True
         func._context_menu_name = name or func.__name__
         func._context_menu_guild = guild_id
+        func._context_menu_nsfw = nsfw
+        func._context_menu_allowed_contexts = allowed_contexts
+        func._context_menu_allowed_installs = allowed_installs
         return func
     return decorator
 
 
-def component(id_or_func=None, *, scoped: bool = True) -> Callable:
+def component(id_or_func=None, *, scoped: bool = True, ttl: float | None = None) -> Callable:
     """Mark a Plugin method as a persistent component (button / select-menu) handler."""
+    if ttl is not None and ttl <= 0:
+        raise ValueError("component ttl must be greater than zero")
+
     def _apply(func: Callable, custom_id: str | None) -> Callable:
         func._is_component = True
         func._component_id = custom_id or func.__name__
         func._component_scoped = scoped
+        func._component_ttl = ttl
         return func
 
     if callable(id_or_func):

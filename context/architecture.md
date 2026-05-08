@@ -1,18 +1,21 @@
 # Architecture
 
-EasyCord is a Discord bot framework (v5.1.0, Python 3.10+). Entry point: `easycord/__init__.py` is the stable public API — internal modules are prefixed `_`.
+EasyCord is a Discord bot framework (v5.1.2, Python 3.10+). Entry point: `easycord/__init__.py` is the stable public API — internal modules are prefixed `_`.
 
 ## Layers
 
 **Bot core** — `bot.py` composes `discord.Client` + four mixins: `_bot_commands.py`, `_bot_events.py`, `_bot_guild.py`, `_bot_plugins.py`. New bot-level behavior goes into the relevant mixin.
 
-**Context** — `context.py` + `_context_base.py`, `_context_channels.py`, `_context_moderation.py`, `_context_ui.py`. User-facing API inside handlers (`ctx.respond()`, `ctx.send_embed()`, etc.). Use `ctx.user` and `ctx.member` — `ctx.author` does not exist.
+**Context** — `context.py` + `_context_base.py`, `_context_channels.py`, `_context_moderation.py`, `_context_ui.py`. User-facing API inside handlers (`ctx.respond()`, `ctx.send()`, `ctx.send_embed()`, etc.). Use `ctx.user` and `ctx.member` — `ctx.author` does not exist.
 
-**Decorators** — `decorators.py`: `@slash`, `@on`, `@component`, `@modal`, `@message_command`, `@user_command`, `@task`, `@ai_tool`. Primary extension points for bot authors.
+**Decorators** — `decorators.py`: `@slash` / `@slash_command`, `@autocomplete`, `@on`, `@component`, `@modal`, `@message_command`, `@user_command`, `@task`, `@ai_tool`, `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`. Primary extension points for bot authors.
 
-**Plugin system** — `plugin.py` defines `Plugin`. Bundled plugins in `plugins/`. Loaded via `bot.load_builtin_plugins()` (defined in `builtin_plugins.py`) or `bot.load_plugin()`.
+**Interaction registry** — `registry.py`: authoritative EasyCord inventory for slash commands, context menus, components, modals, and autocomplete callbacks. Discord sync still goes through `discord.app_commands.CommandTree`.
 
-**Registry** — `registry.py` tracks live slash commands, component handlers, and modal handlers. Commands accessible at `bot.registry.commands`.
+**Plugin system** — `plugin.py` defines `Plugin`. Bundled plugins live in `plugins/`. `bot.load_builtin_plugins()` loads the starter set from `builtin_plugins.py` (welcome, tags, polls, levels). Load other plugins explicitly with `bot.add_plugin(...)`; unload/reload existing plugin instances with `bot.remove_plugin()` / `bot.reload_plugin()`.
+
+**Config and testing** — `config.py` defines `BotConfig` for env/file startup, including guild-scoped command sync. `testing.py` provides `FakeContext` and `invoke()` for command tests without a Discord connection.
+
 
 **Database** — `database.py`: `SQLiteDatabase` and `MemoryDatabase` with per-guild namespacing. `GuildRecord` is the typed row abstraction.
 

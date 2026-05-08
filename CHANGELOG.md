@@ -1,5 +1,61 @@
 # Changelog
 
+## EasyCord v5.2.0
+
+### Highlights
+
+- Added a centralized InteractionRegistry for slash commands, context menus, components, modals, and autocomplete callbacks.
+- Added command sync planning with dry-run support, duplicate detection, and safer destructive-sync handling.
+- Added dynamic component routing with typed route parameters, including patterns such as `ticket:close:{ticket_id:int}`.
+- Added autocomplete callback registration and testing support.
+- Added `slash_command` as a compatibility alias for `slash`.
+- Added reusable option validators for duration, URL, snowflake IDs, ranges, regex patterns, and choice sets.
+- Improved task supervision and plugin-owned interaction cleanup.
+
+### Bug Fixes
+
+- Unified the error pipeline for components, modals, autocomplete callbacks, and background tasks.
+- Exceptions from these paths now route through `plugin.on_error` first, then `bot.on_error`, with logging as fallback.
+- Autocomplete failures now safely return an empty suggestion list instead of bubbling raw exceptions.
+- Task cancellation during plugin unload is treated as a normal lifecycle event, not a crash.
+- Fixed legacy component-prefix fallback matches dropping their registry entry and causing the error router to skip plugin-scoped handlers.
+- Replaced blanket `TypeError` handling in autocomplete callbacks with precise signature inspection (`inspect.signature`) at registration time.
+- Updated `InteractionRegistry` to compare parsed literal/type structural segments (ignoring named regex groups) when rejecting dynamic component collisions.
+- Refactored Plugin instance tracking to use unique `_instance_id` values instead of class names, preventing cross-pollution when loading multiple instances of the same plugin class.
+- Fixed config override evaluation for `auto_sync` so `"false"` strings parse as `False` instead of evaluating to `True`.
+- Updated choice validators to sort mixed-type choice sets using `key=str` to prevent crash on mismatched types.
+- Bumped minimum required `discord.py` version to `>=2.4.0` in `pyproject.toml` for `AppInstallationType` decorator support.
+
+> v5.2.0 focuses on framework architecture and developer experience. It makes EasyCord’s interaction system inspectable, safer to reload, easier to sync, and more consistent under failure.
+
+---
+
+## EasyCord v5.1.2 - 2026-05-07
+
+### Bug Fixes
+- Fixed `BotConfig.build_bot()` so `db_backend="memory"` is honored instead of falling back to environment/default database settings.
+- Added guild-scoped command sync support for `BotConfig.guild_id`, so development guild syncs stay instant and do not publish commands globally.
+- Fixed `BotConfig.from_file()` precedence so environment values are overridden by file values, and explicit keyword overrides win last, including merged `extra` values.
+- Added `Context.send()` as a compatibility alias for `Context.respond()` because several bundled plugins use `ctx.send(...)`.
+- Corrected Discord user-install context metadata to use the current `discord.py` `dm_channel` flag.
+- Exported `command_error` and `describe` in `easycord.__all__`.
+
+### New
+- Added config-driven startup via `BotConfig.from_env()` and `BotConfig.from_file()`.
+- Added `easycord.testing.FakeContext` and `easycord.testing.invoke()` for unit-testing commands without Discord.
+- Added command guard decorators: `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`.
+- Added plugin-scoped `Plugin.on_error()` handling and context helpers for app context, entitlements, message forwarding, silent responses, and suppressing embeds.
+
+### Docs & Packaging
+- Updated README, getting-started, architecture, and agent notes for the v5.1.2 APIs.
+- Included docs, examples, context notes, and agent notes in source distributions so README links resolve from packaged artifacts.
+- Removed accidental local CI log/test artifacts from release scope.
+
+### Verification
+- `pytest tests/` -> 461 passed.
+
+---
+
 ## EasyCord v5.1.1 - 2026-05-06
 
 ### Bug Fixes
@@ -25,7 +81,6 @@
 
 ### CI & Infra
 - Pinned GitHub Actions to `actions/checkout@v4` and `actions/setup-python@v5` across all CI workflows — v6 does not exist and resolved unpredictably.
-- Fixed `LevelsPlugin._award_xp` cooldown sentinel from `0.0` to `float("-inf")` — on freshly-booted CI runners `time.monotonic()` can be under 60 s, causing the first-message cooldown check to silently block all XP awards.
 - Added `test_levels_plugin.py` and `test_openclaw.py` — 411 tests now passing.
 - Added `CLAUDE.md`, `AGENTS.md`, and `context/` architecture and conventions docs.
 

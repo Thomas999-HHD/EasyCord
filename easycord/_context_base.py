@@ -99,12 +99,36 @@ class BaseContext:
 
     # ── Responding ────────────────────────────────────────────
 
+    @property
+    def app_context(self) -> discord.AppCommandContext | None:
+        """The Discord application context — guild, bot DM, or private channel.
+
+        Returns ``interaction.context`` (a ``discord.AppCommandContext`` value)
+        when available, otherwise ``None``.
+
+        Useful with ``@install_type`` to detect whether the command was invoked
+        from a user-installed or guild-installed context.
+        """
+        return getattr(self.interaction, "context", None)
+
+    @property
+    def entitlements(self) -> list[discord.Entitlement]:
+        """Active Discord premium entitlements for the invoking user.
+
+        Returns ``interaction.entitlements`` (list of ``discord.Entitlement``) when
+        available, otherwise an empty list.  Non-empty means the user has an active
+        premium subscription gated by Discord's monetization features.
+        """
+        return getattr(self.interaction, "entitlements", []) or []
+
     async def respond(
         self,
         content: str | None = None,
         *,
         ephemeral: bool = False,
         embed: discord.Embed | None = None,
+        silent: bool = False,
+        suppress_embeds: bool = False,
         **kwargs,
     ) -> None:
         """Send a reply to the command.
@@ -112,8 +136,21 @@ class BaseContext:
         The first call sends an initial response; any further calls send
         follow-up messages automatically. If the command was registered with
         ``ephemeral=True``, all responses are forced ephemeral automatically.
+
+        Parameters
+        ----------
+        silent:
+            When ``True`` the message is sent silently — recipients get no
+            notification sound or ping (equivalent to Discord's ``@silent``
+            feature).
+        suppress_embeds:
+            When ``True`` any link-preview embeds are suppressed.
         """
         ephemeral = ephemeral or self._force_ephemeral
+        if silent:
+            kwargs["silent"] = True
+        if suppress_embeds:
+            kwargs["suppress_embeds"] = True
         if not self._responded:
             self._responded = True
             await self.interaction.response.send_message(
@@ -123,6 +160,31 @@ class BaseContext:
             await self.interaction.followup.send(
                 content, ephemeral=ephemeral, embed=embed, **kwargs
             )
+
+    async def send(
+        self,
+        content: str | None = None,
+        *,
+        ephemeral: bool = False,
+        embed: discord.Embed | None = None,
+        silent: bool = False,
+        suppress_embeds: bool = False,
+        **kwargs,
+    ) -> None:
+        """Compatibility alias for :meth:`respond`.
+
+        Bundled plugins and discord.py users often reach for ``ctx.send(...)``.
+        EasyCord keeps the interaction-aware response behavior by forwarding to
+        ``respond()``, including follow-up handling after the first response.
+        """
+        await self.respond(
+            content,
+            ephemeral=ephemeral,
+            embed=embed,
+            silent=silent,
+            suppress_embeds=suppress_embeds,
+            **kwargs,
+        )
 
     async def defer(self, *, ephemeral: bool = False) -> None:
         """Acknowledge the interaction without sending a visible reply yet.
@@ -369,3 +431,43 @@ class BaseContext:
         if self.guild is None:
             raise RuntimeError("bot_permissions requires a guild context")
         return self.channel.permissions_for(self.guild.me)  # type: ignore[union-attr]
+
+    async def forward(
+        self,
+        message: discord.Message,
+        *,
+        channel: discord.abc.Messageable | None = None,
+    ) -> None:
+        """Forward a message to this command's channel (or another channel).
+
+        Uses discord.py's native ``Message.forward()`` when available
+        (discord.py 2.5+).  Falls back to re-sending the content and embeds
+        on older versions so the method always works.
+
+        Parameters
+        ----------
+        message:
+            The message to forward.
+        channel:
+            Destination channel.  Defaults to the command's own channel.
+        """
+        target = channel or self.channel
+        if target is None:
+            raise RuntimeError("No channel available to forward to.")
+        if hasattr(message, "forward"):
+            await message.forward(target)
+        else:
+            # Fallback: copy text content and up to 10 embeds
+            kwargs: dict = {}
+            if message.content:
+                kwargs["content"] = message.content
+            if message.embeds:
+                kwargs["embeds"] = message.embeds[:10]
+            if message.attachments:
+                files = [
+                    await a.to_file() for a in message.attachments
+                ]
+                kwargs["files"] = files
+            if not kwargs:
+                return
+            await target.send(**kwargs)  # type: ignore[union-attr]

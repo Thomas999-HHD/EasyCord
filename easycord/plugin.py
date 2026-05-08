@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .bot import Bot
+    from .context import Context
 
 
 class Plugin:
@@ -35,6 +36,7 @@ class Plugin:
 
     def __init__(self) -> None:
         self._bot: Bot | None = None
+        self._instance_id: str = f"{self.__class__.__name__}_{id(self)}"
         if not hasattr(self, "name"):
             self.name = self.__class__.__name__.lower()
 
@@ -75,4 +77,19 @@ class Plugin:
         """Called once when the plugin is removed with ``bot.remove_plugin()``.
 
         Override this to run teardown code (e.g. closing connections).
+        """
+
+    async def on_error(self, ctx: "Context", exc: Exception) -> None:
+        """Called when any slash command in this plugin raises an unhandled exception.
+
+        Override to add plugin-scoped error handling.  The per-command
+        ``@command_error`` handler takes priority; this hook fires only when no
+        per-command handler is registered.  The global ``@bot.on_error`` handler
+        fires only when this hook is also absent (i.e. not overridden).
+
+        Example::
+
+            class MyPlugin(Plugin):
+                async def on_error(self, ctx, exc):
+                    await ctx.respond(f"Plugin error: {exc}", ephemeral=True)
         """

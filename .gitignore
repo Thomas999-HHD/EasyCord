@@ -10,6 +10,7 @@ build/
 *.egg-info/
 *.egg
 MANIFEST
+*.zip
 
 # Virtual environments
 .venv/
@@ -20,6 +21,8 @@ env/
 
 # Test / coverage
 .pytest_cache/
+.pytest_cache_codex/
+.tmp_pytest/
 .coverage
 .coverage.*
 htmlcov/
@@ -36,6 +39,7 @@ htmlcov/
 
 # Claude Code tooling
 .claude/
+.coderabbit-bin/
 
 # Runtime data produced by the framework (not part of the source)
 .easycord/
