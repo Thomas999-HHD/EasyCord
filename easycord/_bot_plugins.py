@@ -26,7 +26,7 @@ class _PluginsMixin:
         parent: an ``app_commands.Group`` — when supplied, slash commands are
         added to the group instead of the command tree (used by add_group).
         """
-        plugin_name = type(plugin).__name__
+        plugin_name = getattr(plugin, "_instance_id", str(id(plugin)))
         standalone_autocomplete: dict[str, dict[str, Callable]] = {}
         for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if getattr(method, "_is_autocomplete", False):
@@ -261,7 +261,7 @@ class _PluginsMixin:
                 if getattr(method, "_modal_scoped", True):
                     custom_id = plugin.id(custom_id)
                 self.registry.modals.pop(custom_id, None)
-        self.registry.unregister_plugin(type(plugin).__name__)
+        self.registry.unregister_plugin(getattr(plugin, "_instance_id", str(id(plugin))))
         for handle in self._task_handles.pop(id(plugin), []):
             handle.cancel()
             try:
@@ -269,7 +269,7 @@ class _PluginsMixin:
             except asyncio.CancelledError:
                 pass
         for key, status in getattr(self, "_task_statuses", {}).items():
-            if key.startswith(f"{type(plugin).__name__}."):
+            if key.startswith(f"{getattr(plugin, '_instance_id', str(id(plugin)))}."):
                 status["state"] = "stopped"
         await plugin.on_unload()
 
@@ -280,7 +280,7 @@ class _PluginsMixin:
         are preserved. Raises ``ValueError`` if no loaded plugin has that class name.
         """
         for plugin in self._plugins:
-            if type(plugin).__name__ == name:
+            if getattr(plugin, "_instance_id", type(plugin).__name__) == name or type(plugin).__name__ == name:
                 await plugin.on_unload()
                 await plugin.on_load()
                 return
@@ -299,14 +299,15 @@ class _PluginsMixin:
         handles = []
         for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if getattr(method, "_is_task", False):
-                key = f"{type(plugin).__name__}.{method.__name__}"
+                plugin_id = getattr(plugin, "_instance_id", str(id(plugin)))
+                key = f"{plugin_id}.{method.__name__}"
                 self._task_statuses.setdefault(
                     key,
                     {
                         "state": "stopped",
                         "restart_count": 0,
                         "last_error": None,
-                        "plugin": type(plugin).__name__,
+                        "plugin": plugin_id,
                         "task": method.__name__,
                     },
                 )

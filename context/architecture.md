@@ -16,7 +16,6 @@ EasyCord is a Discord bot framework (v5.1.2, Python 3.10+). Entry point: `easyco
 
 **Config and testing** — `config.py` defines `BotConfig` for env/file startup, including guild-scoped command sync. `testing.py` provides `FakeContext` and `invoke()` for command tests without a Discord connection.
 
-**Registry** — `registry.py` tracks live slash commands, component handlers, and modal handlers. Commands accessible at `bot.registry.commands`.
 
 **Database** — `database.py`: `SQLiteDatabase` and `MemoryDatabase` with per-guild namespacing. `GuildRecord` is the typed row abstraction.
 

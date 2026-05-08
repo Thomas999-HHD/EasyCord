@@ -3,6 +3,7 @@
 ## EasyCord v5.2.0
 
 ### Highlights
+
 - Added a centralized InteractionRegistry for slash commands, context menus, components, modals, and autocomplete callbacks.
 - Added command sync planning with dry-run support, duplicate detection, and safer destructive-sync handling.
 - Added dynamic component routing with typed route parameters, including patterns such as `ticket:close:{ticket_id:int}`.
@@ -12,6 +13,7 @@
 - Improved task supervision and plugin-owned interaction cleanup.
 
 ### Bug Fixes
+
 - Unified the error pipeline for components, modals, autocomplete callbacks, and background tasks.
 - Exceptions from these paths now route through `plugin.on_error` first, then `bot.on_error`, with logging as fallback.
 - Autocomplete failures now safely return an empty suggestion list instead of bubbling raw exceptions.

@@ -363,7 +363,10 @@ class _CommandsMixin:
             allowed_installs=allowed_installs,
         )
         for param_name, handler in autocomplete_handlers.items():
-            def _make_autocomplete(_h: Callable) -> Callable:
+            sig = inspect.signature(handler)
+            expects_options = len(sig.parameters) >= 3
+
+            def _make_autocomplete(_h: Callable, _expects_options: bool) -> Callable:
                 async def _ac(
                     interaction: discord.Interaction,
                     current: str,
@@ -371,21 +374,21 @@ class _CommandsMixin:
                     ctx = Context(interaction)
                     options = self._autocomplete_options(interaction)
                     try:
-                        try:
+                        if _expects_options:
                             results = await _h(ctx, current, options)
-                        except TypeError:
+                        else:
                             results = await _h(current)
                         return [app_commands.Choice(name=r, value=r) for r in results]
                     except Exception as exc:
                         plugin_instance = getattr(_h, "__self__", None)
                         if plugin_instance is None and source_plugin:
-                            plugin_instance = next((p for p in self._plugins if type(p).__name__ == source_plugin), None)
+                            plugin_instance = next((p for p in self._plugins if getattr(p, "_instance_id", type(p).__name__) == source_plugin), None)
                         await self._dispatch_framework_error(exc, ctx=ctx, plugin_instance=plugin_instance)
                         return []
 
                 return _ac
 
-            _ac = _make_autocomplete(handler)
+            _ac = _make_autocomplete(handler, expects_options)
             cmd.autocomplete(param_name)(_ac)
             self.registry.register_autocomplete(
                 name,

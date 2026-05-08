@@ -167,7 +167,7 @@ async def test_task_status_tracks_failure() -> None:
         bot._start_plugin_tasks(plugin)
         await asyncio.sleep(0.02)
 
-        status = bot.task_statuses()["TaskPlugin.doomed"]
+        status = bot.task_statuses()[f"{plugin._instance_id}.doomed"]
         assert status["state"] == "failed"
         assert "boom" in status["last_error"]
     finally:

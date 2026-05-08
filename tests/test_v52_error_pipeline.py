@@ -147,7 +147,7 @@ async def test_task_error_records_failure_and_routes_to_error_pipeline() -> None
         
         await asyncio.sleep(0.02)
         
-        status = bot.task_statuses()["TaskPlugin.crash_task"]
+        status = bot.task_statuses()[f"{plugin._instance_id}.crash_task"]
         assert status["state"] == "failed"
         assert "task boom" in status["last_error"]
         
@@ -179,7 +179,7 @@ async def test_task_cancellation_during_unload_is_not_a_crash() -> None:
         
         await bot.remove_plugin(plugin)
         
-        status = bot.task_statuses()["TaskPlugin.sleep_task"]
+        status = bot.task_statuses()[f"{plugin._instance_id}.sleep_task"]
         assert status["state"] == "stopped"  # Not failed
         assert error_seen is False
     finally:

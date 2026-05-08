@@ -36,6 +36,7 @@ class Plugin:
 
     def __init__(self) -> None:
         self._bot: Bot | None = None
+        self._instance_id: str = f"{self.__class__.__name__}_{id(self)}"
         if not hasattr(self, "name"):
             self.name = self.__class__.__name__.lower()
 

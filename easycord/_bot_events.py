@@ -107,7 +107,7 @@ class _EventsMixin:
         """Route an exception through plugin and global error handlers."""
         if plugin_instance is None and plugin_name is not None:
             for p in getattr(self, "_plugins", []):
-                if type(p).__name__ == plugin_name:
+                if getattr(p, "_instance_id", type(p).__name__) == plugin_name:
                     plugin_instance = p
                     break
 
@@ -248,6 +248,7 @@ class _EventsMixin:
                 if registered_id.endswith("_") and custom_id.startswith(registered_id):
                     handler = candidate_entry["func"]
                     suffix = custom_id[len(registered_id):]
+                    entry = candidate_entry
                     break
 
         if handler is None:

@@ -119,7 +119,7 @@ class TestRequireAdmin:
         async def ping(ctx):
             pass
 
-        assert reset_cmd._slash_require_admin is False if False else ping._slash_require_admin is False
+        assert ping._slash_require_admin is False
 
     @pytest.mark.asyncio
     async def test_require_admin_blocks_non_admin(self):

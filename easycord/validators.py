@@ -99,7 +99,7 @@ class ChoiceSet:
 
     def __call__(self, value):
         if value not in self.choices:
-            allowed = ", ".join(str(choice) for choice in sorted(self.choices))
+            allowed = ", ".join(str(choice) for choice in sorted(self.choices, key=str))
             raise ValidationError(f"Choose one of: {allowed}.")
         return value
 

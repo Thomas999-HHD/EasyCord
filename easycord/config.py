@@ -145,7 +145,10 @@ class BotConfig:
             raw_sync = os.environ.get("EASYCORD_AUTO_SYNC", "true")
             auto_sync = raw_sync.lower() not in ("0", "false", "no")
         else:
-            auto_sync = bool(raw_sync)
+            if isinstance(raw_sync, str):
+                auto_sync = raw_sync.lower() not in ("0", "false", "no")
+            else:
+                auto_sync = bool(raw_sync)
         if "log_level" in overrides:
             log_level = overrides.pop("log_level")
         else:

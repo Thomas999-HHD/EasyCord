@@ -263,9 +263,12 @@ class InteractionRegistry:
                 f"Component ID {custom_id!r} already registered by "
                 f"{existing.source or 'Bot'}:{existing.callback.__name__}"
             )
+        def _shape(pattern: str) -> str:
+            return re.sub(r"\?P<[^>]+>", "", pattern)
+
         for existing in self.components.values():
             if existing.regex is not None and entry.regex is not None:
-                if existing.regex.pattern == entry.regex.pattern:
+                if _shape(existing.regex.pattern) == _shape(entry.regex.pattern):
                     raise ValueError(
                         f"Dynamic component pattern {custom_id!r} collides with "
                         f"{existing.name!r}"
