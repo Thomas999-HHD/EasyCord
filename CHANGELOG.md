@@ -1,5 +1,24 @@
 # Changelog
 
+## EasyCord v5.3.0 - 2026-05-10
+
+### Added
+- Dependency-free `easycord` CLI with `new`, `inspect`, `sync-plan`, `doctor`, and `test-template` commands.
+- Project scaffolding for a runnable bot, starter plugin, `.env.example`, project metadata, and pytest coverage.
+- `easycord doctor [module:bot]` for local setup diagnostics, token checks, dependency checks, and optional bot import validation.
+- Developer formatters: `format_interaction_inventory()`, `format_sync_plan()`, and `format_doctor_report()`.
+- Offline testing helpers for context menus, components, and modals via `invoke_user_command()`, `invoke_message_command()`, `invoke_component()`, and `invoke_modal()`.
+- Developer toolkit documentation.
+
+### Compatibility
+- CLI commands avoid live Discord side effects by default. `sync-plan` only compares local state with manually supplied remote names.
+
+### Verification
+- `pytest tests/`
+- `python -m compileall -q easycord tests`
+
+---
+
 ## EasyCord v5.2.1 - 2026-05-10
 
 ### Added
@@ -100,4 +119,3 @@
 
 ### Verification
 - `pytest tests/` -> 352 passed.
-

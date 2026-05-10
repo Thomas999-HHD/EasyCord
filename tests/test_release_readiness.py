@@ -31,6 +31,7 @@ def test_version_metadata_and_docs_are_consistent() -> None:
     assert f"## EasyCord v{version}" in _read("CHANGELOG.md")
     assert f"releases/tag/v{version}" in pyproject["project"]["urls"]["Release"]
     assert f"releases/download/v{version}/EasyCord-v{version}.zip" in pyproject["project"]["urls"]["Download"]
+    assert pyproject["project"]["scripts"]["easycord"] == "easycord.cli:main"
 
 
 def test_manifest_includes_documentation_assets() -> None:
@@ -99,6 +100,13 @@ def test_release_docs_cover_new_public_features() -> None:
         "ctx.forward",
         "silent",
         "suppress_embeds",
+        "easycord new",
+        "easycord doctor",
+        "format_doctor_report",
+        "invoke_user_command",
+        "invoke_message_command",
+        "invoke_component",
+        "invoke_modal",
     ):
         assert term in docs
 

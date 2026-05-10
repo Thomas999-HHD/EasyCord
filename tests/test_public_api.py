@@ -9,6 +9,9 @@ def test_public_exports_import_from_easycord() -> None:
         command_error,
         cooldown,
         describe,
+        format_doctor_report,
+        format_interaction_inventory,
+        format_sync_plan,
         install_type,
         premium_required,
         require_permissions,
@@ -19,6 +22,9 @@ def test_public_exports_import_from_easycord() -> None:
         "command_error",
         "cooldown",
         "describe",
+        "format_doctor_report",
+        "format_interaction_inventory",
+        "format_sync_plan",
         "install_type",
         "premium_required",
         "require_permissions",
@@ -29,6 +35,9 @@ def test_public_exports_import_from_easycord() -> None:
     assert callable(command_error)
     assert callable(cooldown)
     assert callable(describe)
+    assert callable(format_doctor_report)
+    assert callable(format_interaction_inventory)
+    assert callable(format_sync_plan)
     assert callable(install_type)
     assert callable(premium_required)
     assert callable(require_permissions)

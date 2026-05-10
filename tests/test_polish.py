@@ -27,16 +27,14 @@ async def test_startup_diagnostics(capsys):
     bot = Bot(enable_health_command=True)
     bot.add_plugin(MockPlugin())
     
-    # We can't easily trigger on_ready without a full login, 
-    # but we can call it manually to check the print output.
-    # We mock guilds to avoid errors.
-    bot.guilds = []
+    # We can't easily trigger on_ready without a full login, but we can call
+    # it manually to check the print output.
     await bot.on_ready()
     
     captured = capsys.readouterr()
     assert "EasyCord v" in captured.out
     assert "Plugins: 1" in captured.out
-    assert "Commands: 1" in captured.out
+    assert "Commands: 2" in captured.out
 
 @pytest.mark.asyncio
 async def test_health_command():
@@ -51,10 +49,10 @@ async def test_health_command():
     ctx = FakeContext.make()
     await health_cmd.callback(ctx.interaction)
     
-    assert ctx.last_response is not None
-    embed = ctx.last_response.get("embed")
+    assert ctx.responses
+    embed = ctx.responses[-1].embed
     assert embed is not None
-    assert embed.title == "Bot Health"
+    assert embed.title == "Bot Health & Telemetry"
     # Check if plugin metadata is in the embed
     plugin_field = next(f for f in embed.fields if f.name == "Plugins")
     assert "test_plugin (v1.2.3)" in plugin_field.value

@@ -27,6 +27,7 @@ def _make_ctx(
     ctx.user = MagicMock()
     ctx.user.id = user_id
     ctx.respond = AsyncMock()
+    ctx.paginate = AsyncMock()
     ctx.t = lambda key, default="", **kw: default.format(**kw) if kw else default
 
     if with_guild:
@@ -87,7 +88,7 @@ class TestTagsPluginCommands:
         await plugin.set(ctx, "beta", "B")
         ctx2 = _make_ctx()
         await plugin.list(ctx2)
-        response_text = ctx2.respond.call_args[0][0]
+        response_text = ctx2.paginate.call_args[0][0][0]
         assert "alpha" in response_text
         assert "beta" in response_text
 

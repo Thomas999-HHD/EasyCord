@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.2.1"
+__version__ = "5.3.0"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -40,6 +40,7 @@ from .helpers import ConfigHelpers, ContextHelpers, RateLimitHelpers, ToolHelper
 from .managers import FrameworkManager, SecurityManager
 from .utils import EasyEmbed, Paginator
 from .validators import ChoiceSet, Duration, Range, Regex, Snowflake, URL, ValidationError
+from .formatters import format_doctor_report, format_interaction_inventory, format_sync_plan
 
 _PROVIDER_NAMES = frozenset({
     "AIProvider",
@@ -89,6 +90,9 @@ __all__ = [
     "DatabaseConfig",
     "EasyCordDatabase",
     "FallbackStrategy",
+    "format_doctor_report",
+    "format_interaction_inventory",
+    "format_sync_plan",
     "GeminiProvider",
     "GroqProvider",
     "HuggingFaceProvider",

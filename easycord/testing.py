@@ -259,4 +259,155 @@ async def invoke_autocomplete(
     )
 
 
-__all__ = ["FakeContext", "FakeInteraction", "invoke", "invoke_autocomplete"]
+async def invoke_component(
+    bot: Any,
+    custom_id: str,
+    *,
+    user_id: int = 1,
+    guild_id: int | None = 100,
+    **data: Any,
+) -> FakeContext:
+    """Invoke a registered component handler without Discord."""
+
+    entry, _ = bot.registry.resolve_component(custom_id)
+    if entry is None:
+        legacy_match = any(
+            registered_id.endswith("_") and custom_id.startswith(registered_id)
+            for registered_id in bot.registry.components
+        )
+        if not legacy_match:
+            raise LookupError(f"Component {custom_id!r} is not registered.")
+
+    interaction = FakeInteraction(
+        client=bot,
+        user_id=user_id,
+        guild_id=guild_id,
+    )
+    interaction.data = {"custom_id": custom_id, **data}
+    await bot._dispatch_component(interaction)
+    return FakeContext(interaction)
+
+
+async def invoke_modal(
+    bot: Any,
+    custom_id: str,
+    *,
+    user_id: int = 1,
+    guild_id: int | None = 100,
+    **fields: Any,
+) -> FakeContext:
+    """Invoke a registered modal handler without Discord."""
+
+    if custom_id not in bot.registry.modals:
+        raise LookupError(f"Modal {custom_id!r} is not registered.")
+
+    interaction = FakeInteraction(
+        client=bot,
+        user_id=user_id,
+        guild_id=guild_id,
+    )
+    interaction.data = {
+        "custom_id": custom_id,
+        "components": [
+            {
+                "components": [
+                    {"custom_id": key, "value": value}
+                    for key, value in fields.items()
+                ]
+            }
+        ],
+    }
+    await bot._dispatch_modal(interaction)
+    return FakeContext(interaction)
+
+
+def _find_context_menu(bot: Any, name: str, menu_type: discord.AppCommandType) -> Any:
+    command = bot.tree.get_command(name, type=menu_type)
+    if command is None:
+        available = ", ".join(
+            sorted(cmd.name for cmd in bot.tree.get_commands(type=menu_type))
+        )
+        raise LookupError(
+            f"Context menu {name!r} is not registered. Available: {available}"
+        )
+    return command
+
+
+async def invoke_user_command(
+    bot: Any,
+    command_name: str,
+    *,
+    target: discord.Member | discord.User | None = None,
+    target_id: int = 2,
+    user_id: int = 1,
+    guild_id: int | None = 100,
+    is_admin: bool = True,
+    permissions: dict[str, bool] | None = None,
+) -> FakeContext:
+    """Invoke a registered User context menu command without Discord."""
+
+    command = _find_context_menu(bot, command_name, discord.AppCommandType.user)
+    interaction = FakeInteraction(
+        client=bot,
+        command=command,
+        user_id=user_id,
+        guild_id=guild_id,
+        is_admin=is_admin,
+        permissions=permissions,
+    )
+    if target is None:
+        target = MagicMock(spec=discord.Member if guild_id is not None else discord.User)
+        target.id = target_id
+        target.name = f"target-{target_id}"
+        target.display_name = f"Target {target_id}"
+        target.guild = interaction.guild
+
+    await command.callback(interaction, target)
+    return FakeContext(interaction)
+
+
+async def invoke_message_command(
+    bot: Any,
+    command_name: str,
+    *,
+    target: discord.Message | None = None,
+    content: str = "message content",
+    target_id: int = 10,
+    user_id: int = 1,
+    guild_id: int | None = 100,
+    is_admin: bool = True,
+    permissions: dict[str, bool] | None = None,
+) -> FakeContext:
+    """Invoke a registered Message context menu command without Discord."""
+
+    command = _find_context_menu(bot, command_name, discord.AppCommandType.message)
+    interaction = FakeInteraction(
+        client=bot,
+        command=command,
+        user_id=user_id,
+        guild_id=guild_id,
+        is_admin=is_admin,
+        permissions=permissions,
+    )
+    if target is None:
+        target = MagicMock(spec=discord.Message)
+        target.id = target_id
+        target.content = content
+        target.author = interaction.user
+        target.guild = interaction.guild
+        target.channel = interaction.channel
+
+    await command.callback(interaction, target)
+    return FakeContext(interaction)
+
+
+__all__ = [
+    "FakeContext",
+    "FakeInteraction",
+    "invoke",
+    "invoke_autocomplete",
+    "invoke_component",
+    "invoke_message_command",
+    "invoke_modal",
+    "invoke_user_command",
+]

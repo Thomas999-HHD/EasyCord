@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.2.1-blue)
+![Version](https://img.shields.io/badge/v-5.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -80,9 +80,20 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.2.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.2.1) · [Changelog](CHANGELOG.md)
+Release links: [v5.3.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.3.0) · [Changelog](CHANGELOG.md)
 
-## New in v5.2.1 (Current Release)
+## New in v5.3.0 (Current Release)
+
+**Developer toolkit:**
+- Added a dependency-free `easycord` CLI with `easycord new`, `easycord inspect`, `easycord sync-plan`, `easycord doctor`, and `easycord test-template`.
+- `easycord new <name>` scaffolds a runnable bot project with a plugin, `.env.example`, project metadata, and a starter pytest.
+- `easycord doctor [module:bot]` checks the local Python/runtime setup, token configuration, and optional bot imports before you run the bot.
+- Added text formatters: `format_interaction_inventory(...)`, `format_sync_plan(...)`, and `format_doctor_report(...)` for CLI output and app diagnostics.
+- Added offline testing helpers: `invoke_user_command(...)`, `invoke_message_command(...)`, `invoke_component(...)`, and `invoke_modal(...)`.
+
+See [`docs/developer-toolkit.md`](docs/developer-toolkit.md).
+
+## Previous: v5.2.1
 
 **Interaction architecture:**
 - `InteractionRegistry` is now the authoritative EasyCord inventory for slash commands, context menus, components, modals, and autocomplete callbacks while `discord.app_commands.CommandTree` remains the Discord sync backend.
@@ -216,7 +227,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.2.1/EasyCord-v5.2.1.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.3.0/EasyCord-v5.3.0.zip"
 ```
 
 ### Clone and install locally

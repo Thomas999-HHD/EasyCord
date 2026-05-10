@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import time
 import logging
@@ -242,7 +243,13 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                 color=discord.Color.green(),
                 timestamp=discord.utils.utcnow(),
             )
-            embed.add_field(name="API Latency", value=f"{round(self.latency * 1000)}ms")
+            latency = self.latency
+            api_latency = (
+                f"{round(latency * 1000)}ms"
+                if math.isfinite(latency)
+                else "unavailable"
+            )
+            embed.add_field(name="API Latency", value=api_latency)
             embed.add_field(name="Loop Latency", value=f"{loop_latency:.2f}ms")
             embed.add_field(name="Uptime", value=f"{hours}h {minutes}m {seconds}s")
             embed.add_field(name="Guilds", value=str(len(self.guilds)))
@@ -351,7 +358,11 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             print(f" {line}")
         print("─" * 30 + "\n")
         
-        logger.info("Logged in as %s (ID: %s)", self.user, self.user.id)  # type: ignore[union-attr]
+        user = self.user
+        if user is not None:
+            logger.info("Logged in as %s (ID: %s)", user, user.id)
+        else:
+            logger.info("EasyCord on_ready completed without a cached bot user")
 
     async def close(self) -> None:  # type: ignore[override]
         """Close the bot and release framework-owned resources.

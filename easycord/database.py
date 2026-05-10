@@ -25,8 +25,8 @@ class DatabaseConfig:
     @classmethod
     def from_env(cls) -> "DatabaseConfig":
         """Build a config from environment variables and framework defaults."""
-        backend = os.getenv("EASYCORD_DB_BACKEND", cls.backend)
-        path = os.getenv("EASYCORD_DB_PATH", cls.path)
+        backend = os.getenv("EASYCORD_DB_BACKEND", "sqlite")
+        path = os.getenv("EASYCORD_DB_PATH", ".easycord/library.db")
         auto_sync = os.getenv("EASYCORD_DB_AUTO_SYNC_GUILDS", "1").strip().lower()
         return cls(
             backend=backend if backend in {"sqlite", "memory"} else "sqlite",
