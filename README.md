@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.3.0-blue)
+![Version](https://img.shields.io/badge/v-5.4.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -80,9 +80,21 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.3.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.3.0) · [Changelog](CHANGELOG.md)
+Release links: [v5.4.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.4.0) · [Changelog](CHANGELOG.md)
 
-## New in v5.3.0 (Current Release)
+## New in v5.4.0 (Current Release)
+
+**Developer experience:**
+- Stabilized JSON output contracts for `easycord doctor --json`, `easycord inspect --json`, and `easycord sync-plan --json`.
+- Added `easycord new --template minimal|plugin|ai|database`; the default remains the v5.3 plugin scaffold.
+- Added actionable `easycord doctor` diagnostics with stable `code`, `severity`, and `fix` fields.
+- Added `FakeContextBuilder` for fluent offline command test setup.
+- Added offline AI tool safety audits with `easycord audit-tools`, `audit_tool_registry(...)`, and `format_tool_audit(...)`.
+- Added `easycord new --list-templates`, `easycord audit-tools --fail-on-warnings`, and role-aware `FakeContextBuilder.with_roles(...)`.
+
+See [`docs/developer-toolkit.md`](docs/developer-toolkit.md).
+
+## Previous: v5.3.0
 
 **Developer toolkit:**
 - Added a dependency-free `easycord` CLI with `easycord new`, `easycord inspect`, `easycord sync-plan`, `easycord doctor`, and `easycord test-template`.
@@ -227,7 +239,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.3.0/EasyCord-v5.3.0.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.4.0/EasyCord-v5.4.0.zip"
 ```
 
 ### Clone and install locally

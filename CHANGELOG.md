@@ -1,5 +1,29 @@
 # Changelog
 
+## EasyCord v5.4.0 - 2026-05-10
+
+### Added
+- Stable JSON output contracts for `easycord doctor --json`, `easycord inspect --json`, and `easycord sync-plan --json`.
+- Project scaffold templates via `easycord new --template minimal|plugin|ai|database`; the default `plugin` template preserves v5.3 behavior.
+- Actionable doctor diagnostics with machine-readable `code`, `severity`, and `fix` fields while preserving existing `name`, `ok`, and `detail` fields.
+- `FakeContextBuilder` for fluent offline command test setup.
+- End-to-end developer toolkit docs showing project creation, diagnostics, inspection, sync planning, and offline tests.
+- Offline AI tool safety audits via `easycord audit-tools`, `audit_tool_registry()`, and `format_tool_audit()`.
+- `easycord doctor` now surfaces an `ai.tools_audit` check for bots with registered AI tools.
+- `easycord new --list-templates` for discovering scaffold options.
+- `easycord audit-tools --fail-on-warnings` for CI-friendly local AI safety gates.
+- `FakeContextBuilder.with_roles()` for offline role-gated command and tool tests.
+
+### Compatibility
+- Existing CLI commands, flags, formatter exports, and testing helpers remain available.
+- CLI commands remain dependency-free and avoid live Discord side effects by default.
+
+### Verification
+- `pytest tests/`
+- `python -m compileall -q easycord tests`
+
+---
+
 ## EasyCord v5.3.0 - 2026-05-10
 
 ### Added

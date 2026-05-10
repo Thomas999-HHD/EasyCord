@@ -41,6 +41,39 @@ def format_doctor_report(report: Mapping[str, Any]) -> str:
         detail = check.get("detail")
         suffix = f" - {detail}" if detail else ""
         lines.append(f"{status}: {check.get('name', '<unnamed>')}{suffix}")
+        fix = check.get("fix")
+        if fix and not check.get("ok"):
+            lines.append(f"  fix: {fix}")
+    summary = report.get("summary")
+    if summary:
+        lines.append(str(summary))
+    return "\n".join(lines)
+
+
+def format_tool_audit(report: Mapping[str, Any]) -> str:
+    """Return a compact text summary of an AI tool safety audit."""
+    counts = dict(report.get("counts", {}))
+    lines = [
+        "EasyCord AI tool audit",
+        (
+            f"tools: {counts.get('total', 0)} "
+            f"(enabled: {counts.get('enabled', 0)}, disabled: {counts.get('disabled', 0)})"
+        ),
+        (
+            f"safety: safe={counts.get('safe', 0)}, "
+            f"controlled={counts.get('controlled', 0)}, "
+            f"restricted={counts.get('restricted', 0)}"
+        ),
+    ]
+    for tool in report.get("tools", []):
+        state = "enabled" if tool.get("enabled") else "disabled"
+        warnings = list(tool.get("warnings", []))
+        suffix = f", warnings: {len(warnings)}" if warnings else ""
+        lines.append(
+            f"- {tool.get('name')} ({tool.get('safety')}, {state}{suffix})"
+        )
+        for warning in warnings:
+            lines.append(f"  fix: {warning}")
     summary = report.get("summary")
     if summary:
         lines.append(str(summary))
@@ -51,4 +84,5 @@ __all__ = [
     "format_doctor_report",
     "format_interaction_inventory",
     "format_sync_plan",
+    "format_tool_audit",
 ]

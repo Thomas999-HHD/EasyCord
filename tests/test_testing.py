@@ -4,6 +4,7 @@ from __future__ import annotations
 from easycord import Bot, Plugin, message_command, slash, user_command
 from easycord.testing import (
     FakeContext,
+    FakeContextBuilder,
     invoke,
     invoke_component,
     invoke_message_command,
@@ -21,6 +22,47 @@ def test_fake_context_captures_responses() -> None:
     guild_ctx = FakeContext.make(guild_id=123)
     assert guild_ctx.guild is not None
     assert guild_ctx.guild.id == 123
+
+
+def test_fake_context_builder_configures_context() -> None:
+    entitlement = object()
+    ctx = (
+        FakeContextBuilder()
+        .with_user(42, name="ada", display_name="Ada")
+        .in_guild(987, name="Builders")
+        .as_admin()
+        .with_permissions(manage_messages=True)
+        .with_roles(10, 20)
+        .with_entitlements(entitlement)
+        .with_locale("en-US", guild_locale="en-GB")
+        .with_data(custom_id="button:1")
+        .build()
+    )
+
+    assert ctx.user.id == 42
+    assert ctx.user.name == "ada"
+    assert ctx.user.display_name == "Ada"
+    assert ctx.guild is not None
+    assert ctx.guild.id == 987
+    assert ctx.guild.name == "Builders"
+    assert ctx.is_admin is True
+    assert ctx.member is ctx.user
+    assert ctx.member.guild_permissions.manage_messages is True
+    assert [role.id for role in ctx.member.roles] == [10, 20]
+    assert [role.id for role in ctx.guild.roles] == [10, 20]
+    assert ctx.entitlements == [entitlement]
+    assert ctx.locale == "en-US"
+    assert ctx.guild_locale == "en-GB"
+    assert ctx.data == {"custom_id": "button:1"}
+
+
+def test_fake_context_builder_supports_dm_context() -> None:
+    ctx = FakeContextBuilder().with_user(5).in_dm().build()
+
+    assert ctx.user.id == 5
+    assert ctx.guild is None
+    assert ctx.member is None
+    assert ctx.is_admin is False
 
 
 async def test_fake_context_assertions() -> None:

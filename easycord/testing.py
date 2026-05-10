@@ -92,17 +92,24 @@ class FakeInteraction:
         locale: str | None = None,
         guild_locale: str | None = None,
         permissions: dict[str, bool] | None = None,
+        roles: list[int] | None = None,
     ) -> None:
         permission_values = dict(permissions or {})
         permission_values.setdefault("administrator", is_admin)
         guild_permissions = _FakePermissions(**permission_values)
+        role_mocks = []
+        for role_id in roles or []:
+            role = MagicMock(spec=discord.Role)
+            role.id = role_id
+            role.name = f"Role {role_id}"
+            role_mocks.append(role)
 
         self.user = MagicMock(spec=discord.Member if guild_id is not None else discord.User)
         self.user.id = user_id
         self.user.name = f"user-{user_id}"
         self.user.display_name = f"User {user_id}"
         self.user.guild_permissions = guild_permissions
-        self.user.roles = []
+        self.user.roles = role_mocks
         self.user.voice = None
 
         self.guild = None
@@ -113,6 +120,7 @@ class FakeInteraction:
             self.guild.get_member.return_value = self.user
             self.guild.fetch_member = AsyncMock(return_value=self.user)
             self.guild.me = MagicMock()
+            self.guild.roles = role_mocks
 
         self.channel = MagicMock()
         self.channel.send = AsyncMock()
@@ -154,6 +162,7 @@ class FakeContext(Context):
         is_admin: bool = False,
         entitlements: list[Any] | None = None,
         permissions: dict[str, bool] | None = None,
+        roles: list[int] | None = None,
     ) -> "FakeContext":
         interaction = FakeInteraction(
             client=client,
@@ -163,6 +172,7 @@ class FakeContext(Context):
             is_admin=is_admin,
             entitlements=entitlements,
             permissions=permissions,
+            roles=roles,
         )
         return cls(interaction)
 
@@ -192,6 +202,120 @@ class FakeContext(Context):
     def assert_contains(self, expected: str) -> None:
         assert self.last_response is not None
         assert expected in self.last_response
+
+
+class FakeContextBuilder:
+    """Fluent builder for offline ``Context`` objects in command tests."""
+
+    def __init__(self) -> None:
+        self._client: Any | None = None
+        self._command: Any | None = None
+        self._user_id = 1
+        self._user_name: str | None = None
+        self._display_name: str | None = None
+        self._guild_id: int | None = 100
+        self._guild_name: str | None = None
+        self._is_admin = False
+        self._entitlements: list[Any] | None = None
+        self._locale: str | None = None
+        self._guild_locale: str | None = None
+        self._permissions: dict[str, bool] = {}
+        self._roles: list[int] = []
+        self._data: dict[str, Any] = {}
+
+    def with_client(self, client: Any) -> "FakeContextBuilder":
+        self._client = client
+        return self
+
+    def with_command(self, command: Any) -> "FakeContextBuilder":
+        self._command = command
+        return self
+
+    def with_user(
+        self,
+        user_id: int,
+        *,
+        name: str | None = None,
+        display_name: str | None = None,
+    ) -> "FakeContextBuilder":
+        self._user_id = user_id
+        self._user_name = name
+        self._display_name = display_name
+        return self
+
+    def in_guild(
+        self,
+        guild_id: int = 100,
+        *,
+        name: str | None = None,
+    ) -> "FakeContextBuilder":
+        self._guild_id = guild_id
+        self._guild_name = name
+        return self
+
+    def in_dm(self) -> "FakeContextBuilder":
+        self._guild_id = None
+        self._guild_name = None
+        return self
+
+    def as_admin(self, value: bool = True) -> "FakeContextBuilder":
+        self._is_admin = value
+        return self
+
+    def with_permissions(
+        self,
+        **permissions: bool,
+    ) -> "FakeContextBuilder":
+        self._permissions.update({name: bool(value) for name, value in permissions.items()})
+        return self
+
+    def with_roles(self, *role_ids: int) -> "FakeContextBuilder":
+        self._roles = list(role_ids)
+        return self
+
+    def with_entitlements(self, *entitlements: Any) -> "FakeContextBuilder":
+        self._entitlements = list(entitlements)
+        return self
+
+    def with_locale(
+        self,
+        locale: str | None = None,
+        *,
+        guild_locale: str | None = None,
+    ) -> "FakeContextBuilder":
+        self._locale = locale
+        self._guild_locale = guild_locale
+        return self
+
+    def with_data(self, **data: Any) -> "FakeContextBuilder":
+        self._data.update(data)
+        return self
+
+    def build_interaction(self) -> FakeInteraction:
+        interaction = FakeInteraction(
+            client=self._client,
+            command=self._command,
+            user_id=self._user_id,
+            guild_id=self._guild_id,
+            is_admin=self._is_admin,
+            entitlements=self._entitlements,
+            locale=self._locale,
+            guild_locale=self._guild_locale,
+            permissions=self._permissions,
+            roles=self._roles,
+        )
+        if self._user_name is not None:
+            interaction.user.name = self._user_name
+        if self._display_name is not None:
+            interaction.user.display_name = self._display_name
+        if interaction.guild is not None and self._guild_name is not None:
+            interaction.guild.name = self._guild_name
+        if self._data:
+            interaction.data.update(self._data)
+        return interaction
+
+    def build(self) -> FakeContext:
+        return FakeContext(self.build_interaction())
 
 
 async def invoke(
@@ -403,6 +527,7 @@ async def invoke_message_command(
 
 __all__ = [
     "FakeContext",
+    "FakeContextBuilder",
     "FakeInteraction",
     "invoke",
     "invoke_autocomplete",

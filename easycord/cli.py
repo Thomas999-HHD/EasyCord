@@ -11,14 +11,30 @@ import re
 import sys
 import textwrap
 import platform
-from typing import Sequence
+from typing import Literal, Sequence
 
 from .bot import Bot
 from .formatters import (
     format_doctor_report,
     format_interaction_inventory,
     format_sync_plan,
+    format_tool_audit,
 )
+from .tools import audit_tool_registry
+
+ProjectTemplate = Literal["minimal", "plugin", "ai", "database"]
+_PROJECT_TEMPLATES: tuple[ProjectTemplate, ...] = (
+    "minimal",
+    "plugin",
+    "ai",
+    "database",
+)
+_PROJECT_TEMPLATE_DESCRIPTIONS = {
+    "minimal": "Single-file bot with a slash command and test.",
+    "plugin": "Plugin-oriented scaffold; this is the default.",
+    "ai": "Plugin scaffold with an AI-provider placeholder command.",
+    "database": "Plugin scaffold with SQLite app setup and in-memory tests.",
+}
 
 
 def _class_name(name: str) -> str:
@@ -63,10 +79,62 @@ def _load_bot(spec: str) -> Bot:
     return candidate
 
 
-def _write_new_project(target: Path, name: str) -> list[Path]:
+def _base_project_files(name: str) -> dict[str, str]:
+    return {
+        ".env.example": "DISCORD_TOKEN=replace-me\n",
+        "pyproject.toml": f'''\
+            [project]
+            name = "{_module_name(name).replace("_", "-")}-bot"
+            version = "0.1.0"
+            requires-python = ">=3.10"
+            dependencies = ["easycord"]
+
+            [project.optional-dependencies]
+            dev = ["pytest>=7", "pytest-asyncio>=0.21"]
+
+            [tool.pytest.ini_options]
+            asyncio_mode = "auto"
+            ''',
+    }
+
+
+def _minimal_project_files(name: str) -> dict[str, str]:
+    return {
+        **_base_project_files(name),
+        "bot.py": '''\
+            import os
+
+            from easycord import Bot
+
+
+            bot = Bot(auto_sync=False)
+
+
+            @bot.slash(description="Ping the bot")
+            async def ping(ctx):
+                await ctx.respond("Pong!")
+
+
+            if __name__ == "__main__":
+                bot.run(os.environ["DISCORD_TOKEN"])
+            ''',
+        "tests/test_bot.py": '''\
+            from bot import bot
+            from easycord.testing import invoke
+
+
+            async def test_ping_command():
+                ctx = await invoke(bot, "ping")
+                ctx.assert_content("Pong!")
+            ''',
+    }
+
+
+def _plugin_project_files(name: str) -> dict[str, str]:
     plugin_module = _module_name(name)
     plugin_class = f"{_class_name(name)}Plugin"
-    files = {
+    return {
+        **_base_project_files(name),
         "bot.py": f'''\
             import os
 
@@ -92,20 +160,6 @@ def _write_new_project(target: Path, name: str) -> list[Path]:
                 async def hello(self, ctx):
                     await ctx.respond(f"Hello, {{ctx.user.display_name}}!")
             ''',
-        ".env.example": "DISCORD_TOKEN=replace-me\n",
-        "pyproject.toml": f'''\
-            [project]
-            name = "{_module_name(name).replace("_", "-")}-bot"
-            version = "0.1.0"
-            requires-python = ">=3.10"
-            dependencies = ["easycord"]
-
-            [project.optional-dependencies]
-            dev = ["pytest>=7", "pytest-asyncio>=0.21"]
-
-            [tool.pytest.ini_options]
-            asyncio_mode = "auto"
-            ''',
         "tests/test_bot.py": f'''\
             from bot import bot
             from easycord.testing import invoke
@@ -116,6 +170,142 @@ def _write_new_project(target: Path, name: str) -> list[Path]:
                 ctx.assert_contains("Hello")
             ''',
     }
+
+
+def _ai_project_files(name: str) -> dict[str, str]:
+    plugin_module = _module_name(name)
+    plugin_class = f"{_class_name(name)}AssistantPlugin"
+    return {
+        **_base_project_files(name),
+        "bot.py": f'''\
+            import os
+
+            from easycord import Bot
+
+            from plugins.{plugin_module} import {plugin_class}
+
+
+            bot = Bot(auto_sync=False)
+            bot.add_plugin({plugin_class}())
+
+
+            if __name__ == "__main__":
+                bot.run(os.environ["DISCORD_TOKEN"])
+            ''',
+        "plugins/__init__.py": "",
+        f"plugins/{plugin_module}.py": f'''\
+            from easycord import Plugin, slash
+
+
+            class {plugin_class}(Plugin):
+                @slash(description="Ask the configured AI provider")
+                async def ask(self, ctx, prompt: str):
+                    try:
+                        answer = await ctx.ai(prompt)
+                    except RuntimeError:
+                        await ctx.respond(
+                            "No AI provider is configured yet.",
+                            ephemeral=True,
+                        )
+                        return
+                    await ctx.respond(answer[:2000])
+            ''',
+        "tests/test_bot.py": '''\
+            from bot import bot
+            from easycord.testing import invoke
+
+
+            async def test_ask_command_without_provider_is_friendly():
+                ctx = await invoke(bot, "ask", prompt="hello")
+                ctx.assert_contains("No AI provider")
+                assert ctx.was_ephemeral is True
+            ''',
+    }
+
+
+def _database_project_files(name: str) -> dict[str, str]:
+    plugin_module = _module_name(name)
+    plugin_class = f"{_class_name(name)}DatabasePlugin"
+    return {
+        **_base_project_files(name),
+        "bot.py": f'''\
+            import os
+
+            from easycord import Bot, SQLiteDatabase
+
+            from plugins.{plugin_module} import {plugin_class}
+
+
+            bot = Bot(
+                auto_sync=False,
+                database=SQLiteDatabase(path="data/bot.db"),
+            )
+            bot.add_plugin({plugin_class}())
+
+
+            if __name__ == "__main__":
+                bot.run(os.environ["DISCORD_TOKEN"])
+            ''',
+        "plugins/__init__.py": "",
+        f"plugins/{plugin_module}.py": f'''\
+            from easycord import Plugin, slash
+
+
+            class {plugin_class}(Plugin):
+                @slash(description="Store a guild note")
+                async def set_note(self, ctx, note: str):
+                    await ctx.interaction.client.db.set(ctx.guild_id or 0, "note", note)
+                    await ctx.respond("Note saved.", ephemeral=True)
+
+                @slash(description="Show the stored guild note")
+                async def get_note(self, ctx):
+                    note = await ctx.interaction.client.db.get(
+                        ctx.guild_id or 0,
+                        "note",
+                        "No note saved.",
+                    )
+                    await ctx.respond(note)
+            ''',
+        "tests/test_bot.py": f'''\
+            from easycord import Bot
+            from easycord.testing import invoke
+
+            from plugins.{plugin_module} import {plugin_class}
+
+
+            async def test_note_round_trip():
+                bot = Bot(auto_sync=False, db_backend="memory")
+                try:
+                    bot.add_plugin({plugin_class}())
+                    saved = await invoke(bot, "set_note", note="Ship it")
+                    shown = await invoke(bot, "get_note")
+                    saved.assert_contains("Note saved")
+                    shown.assert_content("Ship it")
+                finally:
+                    await bot.close()
+            ''',
+    }
+
+
+def _project_files(name: str, template: ProjectTemplate) -> dict[str, str]:
+    if template == "minimal":
+        return _minimal_project_files(name)
+    if template == "plugin":
+        return _plugin_project_files(name)
+    if template == "ai":
+        return _ai_project_files(name)
+    if template == "database":
+        return _database_project_files(name)
+    raise SystemExit(f"Unknown project template: {template}")
+
+
+def _write_new_project(
+    target: Path,
+    name: str,
+    *,
+    template: ProjectTemplate = "plugin",
+) -> list[Path]:
+    files = _project_files(name, template)
     written: list[Path] = []
     for relative, content in files.items():
         path = target / relative
@@ -151,11 +341,19 @@ def _test_template(plugin_name: str) -> str:
 
 
 def cmd_new(args: argparse.Namespace) -> int:
+    if args.list_templates:
+        print("EasyCord project templates")
+        for template in _PROJECT_TEMPLATES:
+            default = " (default)" if template == "plugin" else ""
+            print(f"  {template}{default}: {_PROJECT_TEMPLATE_DESCRIPTIONS[template]}")
+        return 0
+    if not args.name:
+        raise SystemExit("Project name is required unless --list-templates is used.")
     target = Path(args.name)
     if target.exists() and any(target.iterdir()):
         raise SystemExit(f"Directory {target} already exists and is not empty.")
-    written = _write_new_project(target, target.name)
-    print(f"Created EasyCord project at {target}")
+    written = _write_new_project(target, target.name, template=args.template)
+    print(f"Created EasyCord project at {target} (template: {args.template})")
     for path in written:
         print(f"  {path.relative_to(target)}")
     return 0
@@ -184,40 +382,96 @@ def cmd_sync_plan(args: argparse.Namespace) -> int:
 def _doctor_report(target: str | None = None) -> dict[str, object]:
     checks: list[dict[str, object]] = []
 
-    def add(name: str, ok: bool, detail: str = "") -> None:
-        checks.append({"name": name, "ok": ok, "detail": detail})
+    def add(
+        code: str,
+        name: str,
+        ok: bool,
+        detail: str = "",
+        *,
+        severity: str = "error",
+        fix: str = "",
+    ) -> None:
+        checks.append(
+            {
+                "code": code,
+                "name": name,
+                "ok": ok,
+                "detail": detail,
+                "severity": "ok" if ok else severity,
+                "fix": "" if ok else fix,
+            }
+        )
 
     python_version = platform.python_version()
-    add("Python >= 3.10", sys.version_info >= (3, 10), python_version)
+    add(
+        "python.version",
+        "Python >= 3.10",
+        sys.version_info >= (3, 10),
+        python_version,
+        fix="Install Python 3.10 or newer, then recreate your virtual environment.",
+    )
 
     try:
         discord_version = metadata.version("discord.py")
     except metadata.PackageNotFoundError:
-        add("discord.py installed", False, "package not found")
+        add(
+            "dependency.discord_py",
+            "discord.py installed",
+            False,
+            "package not found",
+            fix='Install EasyCord dependencies with: pip install -e ".[dev]"',
+        )
     else:
-        add("discord.py installed", True, f"v{discord_version}")
+        add("dependency.discord_py", "discord.py installed", True, f"v{discord_version}")
 
     add(
+        "env.discord_token",
         "DISCORD_TOKEN configured",
         bool(os.getenv("DISCORD_TOKEN")),
         "set" if os.getenv("DISCORD_TOKEN") else "missing",
+        fix="Set DISCORD_TOKEN in your shell or .env file before running the bot.",
     )
 
     if target:
         try:
             bot = _load_bot(target)
         except SystemExit as exc:
-            add("bot target imports", False, str(exc))
+            add(
+                "bot.import",
+                "bot target imports",
+                False,
+                str(exc),
+                fix="Check the module:object path and import the bot from the project root.",
+            )
         else:
             inventory = bot.inspect_interactions()
             total = sum(len(entries) for entries in inventory.values())
-            add("bot target imports", True, f"{target} ({total} interactions)")
-            add("auto_sync disabled for local imports", not bot._auto_sync)
+            add("bot.import", "bot target imports", True, f"{target} ({total} interactions)")
+            add(
+                "bot.auto_sync",
+                "auto_sync disabled for local imports",
+                not bot._auto_sync,
+                "disabled" if not bot._auto_sync else "enabled",
+                severity="warning",
+                fix="Use Bot(auto_sync=False) while importing bots in local tests and diagnostics.",
+            )
+            tool_registry = getattr(bot, "tool_registry", None)
+            if tool_registry is not None and getattr(tool_registry, "_tools", None):
+                audit = audit_tool_registry(tool_registry)
+                add(
+                    "ai.tools_audit",
+                    "AI tools safety audit",
+                    True,
+                    audit["summary"],
+                    severity="warning",
+                    fix=f"Run: easycord audit-tools {target}",
+                )
 
     failed = sum(1 for check in checks if not check["ok"])
     return {
         "checks": checks,
         "failed": failed,
+        "ok": failed == 0,
         "summary": "All checks passed." if failed == 0 else f"{failed} check(s) need attention.",
     }
 
@@ -229,6 +483,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     else:
         print(format_doctor_report(report))
     return 0 if report["failed"] == 0 else 1
+
+
+def cmd_audit_tools(args: argparse.Namespace) -> int:
+    bot = _load_bot(args.target)
+    report = audit_tool_registry(bot.tool_registry)
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(format_tool_audit(report))
+    return 1 if args.fail_on_warnings and report["warnings"] else 0
 
 
 def cmd_test_template(args: argparse.Namespace) -> int:
@@ -250,7 +514,18 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     new = subcommands.add_parser("new", help="Create a starter EasyCord bot project")
-    new.add_argument("name")
+    new.add_argument("name", nargs="?")
+    new.add_argument(
+        "--template",
+        choices=_PROJECT_TEMPLATES,
+        default="plugin",
+        help="Project template to generate (default: plugin)",
+    )
+    new.add_argument(
+        "--list-templates",
+        action="store_true",
+        help="Show available project templates and exit",
+    )
     new.set_defaults(func=cmd_new)
 
     inspect = subcommands.add_parser("inspect", help="Show a bot's registered interactions")
@@ -268,6 +543,19 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("target", nargs="?", help="Optional bot object as module:object")
     doctor.add_argument("--json", action="store_true", help="Print raw JSON")
     doctor.set_defaults(func=cmd_doctor)
+
+    audit_tools = subcommands.add_parser(
+        "audit-tools",
+        help="Audit registered AI tools without contacting Discord",
+    )
+    audit_tools.add_argument("target", help="Bot object as module:object, for example bot:bot")
+    audit_tools.add_argument("--json", action="store_true", help="Print raw JSON")
+    audit_tools.add_argument(
+        "--fail-on-warnings",
+        action="store_true",
+        help="Exit with status 1 when audit warnings are present",
+    )
+    audit_tools.set_defaults(func=cmd_audit_tools)
 
     template = subcommands.add_parser("test-template", help="Generate a starter plugin test")
     template.add_argument("plugin_name")

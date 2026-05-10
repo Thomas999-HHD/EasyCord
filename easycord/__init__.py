@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.3.0"
+__version__ = "5.4.0"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -32,7 +32,7 @@ from .i18n import LocalizationManager
 from .group import SlashGroup
 from .plugin import Plugin
 from .server_config import ServerConfig, ServerConfigStore
-from .tools import ToolCall, ToolDef, ToolRegistry, ToolResult, ToolSafety
+from .tools import ToolCall, ToolDef, ToolRegistry, ToolResult, ToolSafety, audit_tool_registry
 from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunContext
 from .tool_limits import RateLimit, ToolLimiter
 from .conversation_memory import Conversation, ConversationMemory, ConversationTurn
@@ -40,7 +40,7 @@ from .helpers import ConfigHelpers, ContextHelpers, RateLimitHelpers, ToolHelper
 from .managers import FrameworkManager, SecurityManager
 from .utils import EasyEmbed, Paginator
 from .validators import ChoiceSet, Duration, Range, Regex, Snowflake, URL, ValidationError
-from .formatters import format_doctor_report, format_interaction_inventory, format_sync_plan
+from .formatters import format_doctor_report, format_interaction_inventory, format_sync_plan, format_tool_audit
 
 _PROVIDER_NAMES = frozenset({
     "AIProvider",
@@ -68,6 +68,7 @@ __all__ = [
     "AIProvider",
     "AnthropicProvider",
     "AuditLog",
+    "audit_tool_registry",
     "ai_tool",
     "autocomplete",
     "Bot",
@@ -93,6 +94,7 @@ __all__ = [
     "format_doctor_report",
     "format_interaction_inventory",
     "format_sync_plan",
+    "format_tool_audit",
     "GeminiProvider",
     "GroqProvider",
     "HuggingFaceProvider",

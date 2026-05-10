@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.3.0/EasyCord-v5.3.0.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.4.0/EasyCord-v5.4.0.zip"
 ```
 
 Or clone and install locally:
@@ -23,18 +23,25 @@ Python 3.10 or newer is required. The only runtime dependency is `discord.py>=2.
 EasyCord includes a dependency-free developer toolkit:
 
 ```bash
-easycord new my-bot
+easycord new my-bot --template plugin
 cd my-bot
 pip install -e ".[dev]"
 pytest
 easycord doctor bot:bot
+easycord audit-tools bot:bot
 ```
 
 The generated project includes a runnable `bot.py`, one example plugin, an
 `.env.example`, and a starter command test.
 
 `easycord doctor [module:bot]` checks Python support, `discord.py`,
-`DISCORD_TOKEN`, and optional bot imports before you connect to Discord.
+`DISCORD_TOKEN`, and optional bot imports before you connect to Discord. Use
+`--template minimal`, `--template ai`, or `--template database` for alternate
+starter projects.
+
+`easycord audit-tools [module:bot]` inspects registered AI tools offline and
+reports safety warnings before any provider or Discord connection is used.
+`easycord new --list-templates` prints the available scaffold options.
 
 ---
 
@@ -215,6 +222,7 @@ error handling after optional per-command handlers decorated with
 ```python
 from easycord.testing import (
     FakeContext,
+    FakeContextBuilder,
     invoke,
     invoke_component,
     invoke_message_command,
@@ -239,6 +247,19 @@ ctx = await invoke_user_command(bot, "Profile", target_id=42)
 ctx = await invoke_message_command(bot, "Quote", content="Ship it")
 ctx = await invoke_component(bot, "ticket:close:42")
 ctx = await invoke_modal(bot, "feedback", message="Great bot")
+```
+
+For direct handler tests with richer setup, use the fluent builder:
+
+```python
+ctx = (
+    FakeContextBuilder()
+    .with_user(42, display_name="Ada")
+    .in_guild(100)
+    .with_permissions(manage_messages=True)
+    .with_roles(123456789)
+    .build()
+)
 ```
 
 ---

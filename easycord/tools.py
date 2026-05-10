@@ -244,3 +244,109 @@ class ToolRegistry:
             }
             for t in tools
         ]
+
+
+def _tool_accepts_user_args(tool: ToolDef) -> bool:
+    parameters = [
+        param
+        for name, param in inspect.signature(tool.func).parameters.items()
+        if name != "ctx"
+    ]
+    return bool(parameters)
+
+
+def _tool_has_gate(tool: ToolDef) -> bool:
+    return bool(
+        tool.require_admin
+        or tool.permissions
+        or tool.allowed_roles
+        or tool.allowed_users
+    )
+
+
+def audit_tool_registry(
+    registry: ToolRegistry,
+    *,
+    timeout_warning_ms: int = 30000,
+) -> dict[str, Any]:
+    """Return an offline safety audit report for an AI tool registry."""
+    tools: list[dict[str, Any]] = []
+    counts = {
+        "total": 0,
+        "enabled": 0,
+        "disabled": 0,
+        "safe": 0,
+        "controlled": 0,
+        "restricted": 0,
+        "warnings": 0,
+    }
+
+    for name in sorted(registry._tools):  # noqa: SLF001 - internal audit helper.
+        tool = registry._tools[name]  # noqa: SLF001
+        enabled = name in registry._allowlist and name not in registry._denylist  # noqa: SLF001
+        warnings: list[str] = []
+        description = (tool.description or "").strip()
+
+        if not description or description == "No description provided.":
+            warnings.append("Add a specific tool description before exposing this tool to AI.")
+
+        if _tool_accepts_user_args(tool) and not tool.parameters:
+            warnings.append("Add a JSON parameter schema for user-provided arguments.")
+
+        if tool.safety in {ToolSafety.CONTROLLED, ToolSafety.RESTRICTED} and not _tool_has_gate(tool):
+            warnings.append(
+                "Add an admin, permission, role, or user gate for this higher-risk tool."
+            )
+
+        if tool.timeout_ms > timeout_warning_ms:
+            warnings.append(
+                f"Lower timeout_ms to {timeout_warning_ms}ms or document why it is needed."
+            )
+
+        if tool.safety is ToolSafety.RESTRICTED and enabled:
+            warnings.append("Restricted tools should remain disabled unless explicitly sandboxed.")
+
+        safety_key = {
+            ToolSafety.SAFE: "safe",
+            ToolSafety.CONTROLLED: "controlled",
+            ToolSafety.RESTRICTED: "restricted",
+        }[tool.safety]
+
+        counts["total"] += 1
+        counts[safety_key] += 1
+        counts["enabled" if enabled else "disabled"] += 1
+        counts["warnings"] += len(warnings)
+
+        tools.append(
+            {
+                "name": tool.name,
+                "safety": tool.safety.value,
+                "enabled": enabled,
+                "description": tool.description,
+                "requires_guild": tool.require_guild,
+                "requires_admin": tool.require_admin,
+                "permissions": list(tool.permissions),
+                "allowed_roles": list(tool.allowed_roles),
+                "allowed_users": list(tool.allowed_users),
+                "timeout_ms": tool.timeout_ms,
+                "rate_limited": tool.rate_limit is not None,
+                "warnings": warnings,
+            }
+        )
+
+    warnings = [
+        f"{tool['name']}: {warning}"
+        for tool in tools
+        for warning in tool["warnings"]
+    ]
+    return {
+        "ok": not warnings,
+        "summary": (
+            "No AI tool safety warnings."
+            if not warnings
+            else f"{len(warnings)} AI tool safety warning(s)."
+        ),
+        "counts": counts,
+        "tools": tools,
+        "warnings": warnings,
+    }
