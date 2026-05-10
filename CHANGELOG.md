@@ -1,6 +1,6 @@
 # Changelog
 
-## EasyCord v5.2.0 - 2026-05-10
+## EasyCord v5.2.1 - 2026-05-10
 
 ### Added
 - Centralized `InteractionRegistry` for slash commands, context menus, components, modals, and autocomplete callbacks.
