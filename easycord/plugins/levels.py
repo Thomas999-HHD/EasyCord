@@ -174,6 +174,11 @@ class LevelsPlugin(Plugin):
 
         if now - self._cooldowns[guild_id].get(user_id, float("-inf")) < self._cooldown:
             return
+
+        # Memory safety: prune cooldowns if they grow too large
+        if sum(len(c) for c in self._cooldowns.values()) > 10000:
+            self._cooldowns.clear()
+
         self._cooldowns[guild_id][user_id] = now
 
         xp, level, leveled_up = await self._store.add_xp(

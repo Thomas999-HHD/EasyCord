@@ -84,5 +84,6 @@ class TagsPlugin(Plugin):
         if not names:
             await ctx.respond(ctx.t("tags.empty", default="No tags yet."), ephemeral=True)
             return
-        tag_list = ctx.t("tags.header", default="**Tags:**") + "\n" + "\n".join(names)
-        await ctx.respond(tag_list, ephemeral=True)
+        
+        header = ctx.t("tags.header", default="**Tags in this server:**")
+        await ctx.paginate([f"{header}\n" + "\n".join(names[i:i+20]) for i in range(0, len(names), 20)], ephemeral=True)

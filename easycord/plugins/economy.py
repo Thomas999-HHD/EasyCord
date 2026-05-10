@@ -169,7 +169,7 @@ class EconomyPlugin(Plugin):
             description="\n".join(lines),
             color=discord.Color.gold(),
         )
-        await ctx.send_embed_from_dict(embed.to_dict())
+        await ctx.respond(embed=embed)
 
     @slash(description="Transfer currency to another user", guild_only=True)
     async def transfer(self, ctx: Context, user: discord.User, amount: int) -> None:

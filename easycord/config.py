@@ -36,6 +36,7 @@ _CONFIG_FIELDS = {
     "db_path",
     "auto_sync",
     "log_level",
+    "enable_health_command",
     "extra",
 }
 _VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"}
@@ -66,6 +67,9 @@ class BotConfig:
     log_level:
         Python logging level string (``"DEBUG"``, ``"INFO"``, etc.).
         Defaults to ``"INFO"``.
+    enable_health_command:
+        Automatically register a global ``/health`` command showing bot status.
+        Defaults to ``False``.
     extra:
         Arbitrary key-value pairs for application-specific settings.
         Access via ``cfg.extra["my_key"]`` or ``cfg.get("my_key", default)``.
@@ -77,6 +81,7 @@ class BotConfig:
     db_path: str = "data/bot.db"
     auto_sync: bool = True
     log_level: str = "INFO"
+    enable_health_command: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -112,6 +117,7 @@ class BotConfig:
         ``EASYCORD_DB_PATH``      ``db_path``
         ``EASYCORD_AUTO_SYNC``    ``auto_sync``
         ``EASYCORD_LOG_LEVEL``    ``log_level``
+        ``EASYCORD_HEALTH_COMMAND`` ``enable_health_command``
         ========================  =============================================
 
         Keyword arguments in *overrides* take precedence over env vars.
@@ -149,10 +155,18 @@ class BotConfig:
                 auto_sync = raw_sync.lower() not in ("0", "false", "no")
             else:
                 auto_sync = bool(raw_sync)
-        if "log_level" in overrides:
-            log_level = overrides.pop("log_level")
-        else:
+        log_level = overrides.pop("log_level", None)
+        if log_level is None:
             log_level = os.environ.get("EASYCORD_LOG_LEVEL", "INFO")
+        raw_health = overrides.pop("enable_health_command", None)
+        if raw_health is None:
+            raw_health = os.environ.get("EASYCORD_HEALTH_COMMAND", "false")
+            enable_health_command = raw_health.lower() not in ("0", "false", "no")
+        else:
+            if isinstance(raw_health, str):
+                enable_health_command = raw_health.lower() not in ("0", "false", "no")
+            else:
+                enable_health_command = bool(raw_health)
         return cls(
             token=token,
             guild_id=guild_id,
@@ -160,6 +174,7 @@ class BotConfig:
             db_path=db_path,
             auto_sync=auto_sync,
             log_level=log_level,
+            enable_health_command=enable_health_command,
             extra={**overrides, **dict(override_extra or {})},
         )
 
@@ -232,4 +247,5 @@ class BotConfig:
         kwargs.setdefault("db_backend", self.db_backend)
         if self.db_backend == "sqlite":
             kwargs.setdefault("db_path", self.db_path)
+        kwargs.setdefault("enable_health_command", self.enable_health_command)
         return Bot(**kwargs)

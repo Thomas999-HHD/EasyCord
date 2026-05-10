@@ -112,103 +112,103 @@ class ModerationPlugin(Plugin):
     async def kick(self, ctx: Context, user: discord.User, reason: str = None) -> None:
         """Kick a user from the server."""
         if not ctx.user.guild_permissions.kick_members:
-            await ctx.send("❌ You lack `kick_members` permission")
+            await ctx.respond("❌ You lack `kick_members` permission")
             return
 
         member = ctx.guild.get_member(user.id)
         if not member:
-            await ctx.send(f"❌ {user.mention} is not in this server")
+            await ctx.respond(f"❌ {user.mention} is not in this server")
             return
 
         try:
             await member.kick(reason=reason or "No reason provided")
-            await ctx.send(f"✅ Kicked {user.mention}")
+            await ctx.respond(f"✅ Kicked {user.mention}")
             await self._log_moderation(ctx, "kick", user, reason)
         except discord.Forbidden:
-            await ctx.send("❌ I lack permission to kick this user")
+            await ctx.respond("❌ I lack permission to kick this user")
         except discord.HTTPException as e:
-            await ctx.send(f"❌ Failed to kick user: {e}")
+            await ctx.respond(f"❌ Failed to kick user: {e}")
 
     @slash(description="Ban a user from the server", guild_only=True)
     async def ban(self, ctx: Context, user: discord.User, reason: str = None, delete_days: int = 0) -> None:
         """Ban a user from the server."""
         if not ctx.user.guild_permissions.ban_members:
-            await ctx.send("❌ You lack `ban_members` permission")
+            await ctx.respond("❌ You lack `ban_members` permission")
             return
 
         # Rate limit bans to 5 per hour per moderator
         allowed, msg = await self.ban_limiter.check_limit(ctx.user.id, "ban", RateLimit(max_calls=5, window_minutes=60))
         if not allowed:
-            await ctx.send(f"⏳ {msg}")
+            await ctx.respond(f"⏳ {msg}")
             return
 
         try:
             await ctx.guild.ban(user, reason=reason or "No reason provided", delete_message_days=delete_days)
-            await ctx.send(f"✅ Banned {user.mention}")
+            await ctx.respond(f"✅ Banned {user.mention}")
             await self._log_moderation(ctx, "ban", user, reason)
         except discord.Forbidden:
-            await ctx.send("❌ I lack permission to ban this user")
+            await ctx.respond("❌ I lack permission to ban this user")
         except discord.HTTPException as e:
-            await ctx.send(f"❌ Failed to ban user: {e}")
+            await ctx.respond(f"❌ Failed to ban user: {e}")
 
     @slash(description="Unban a previously banned user", guild_only=True)
     async def unban(self, ctx: Context, user: discord.User, reason: str = None) -> None:
         """Unban a user."""
         if not ctx.user.guild_permissions.ban_members:
-            await ctx.send("❌ You lack `ban_members` permission")
+            await ctx.respond("❌ You lack `ban_members` permission")
             return
 
         try:
             await ctx.guild.unban(user, reason=reason or "No reason provided")
-            await ctx.send(f"✅ Unbanned {user.mention}")
+            await ctx.respond(f"✅ Unbanned {user.mention}")
             await self._log_moderation(ctx, "unban", user, reason)
         except discord.NotFound:
-            await ctx.send(f"❌ {user.mention} is not banned")
+            await ctx.respond(f"❌ {user.mention} is not banned")
         except discord.Forbidden:
-            await ctx.send("❌ I lack permission to unban users")
+            await ctx.respond("❌ I lack permission to unban users")
         except discord.HTTPException as e:
-            await ctx.send(f"❌ Failed to unban user: {e}")
+            await ctx.respond(f"❌ Failed to unban user: {e}")
 
     @slash(description="Timeout a user (temporary mute)", guild_only=True)
     async def timeout(self, ctx: Context, user: discord.User, minutes: int, reason: str = None) -> None:
         """Timeout a user for specified minutes (1-40320 = up to 28 days)."""
         if not ctx.user.guild_permissions.moderate_members:
-            await ctx.send("❌ You lack `moderate_members` permission")
+            await ctx.respond("❌ You lack `moderate_members` permission")
             return
 
         minutes = max(1, min(40320, minutes))
 
         member = ctx.guild.get_member(user.id)
         if not member:
-            await ctx.send(f"❌ {user.mention} is not in this server")
+            await ctx.respond(f"❌ {user.mention} is not in this server")
             return
 
         try:
             await member.timeout(discord.utils.utcnow() + discord.utils.timedelta(minutes=minutes), reason=reason)
             duration = f"{minutes} minutes"
-            await ctx.send(f"✅ Timed out {user.mention} for {duration}")
+            await ctx.respond(f"✅ Timed out {user.mention} for {duration}")
             await self._log_moderation(ctx, "timeout", user, reason, duration)
         except discord.Forbidden:
-            await ctx.send("❌ I lack permission to timeout this user")
+            await ctx.respond("❌ I lack permission to timeout this user")
         except discord.HTTPException as e:
-            await ctx.send(f"❌ Failed to timeout user: {e}")
+            await ctx.respond(f"❌ Failed to timeout user: {e}")
 
     @slash(description="Issue a formal warning to a user", guild_only=True)
     async def warn(self, ctx: Context, user: discord.User, reason: str = None) -> None:
         """Warn a user and track warnings."""
         if not ctx.user.guild_permissions.moderate_members:
-            await ctx.send("❌ You lack `moderate_members` permission")
+            await ctx.respond("❌ You lack `moderate_members` permission")
             return
 
         cfg = await self._get_config(ctx.guild.id)
         if not cfg.get("enable_warnings"):
-            await ctx.send("⚠️ Warnings are disabled for this server")
+            await ctx.respond("⚠️ Warnings are disabled for this server")
             return
 
         # Rate limit warns to 10 per hour per moderator
         allowed, msg = await self.warn_limiter.check_limit(ctx.user.id, "warn", RateLimit(max_calls=10, window_minutes=60))
         if not allowed:
-            await ctx.send(f"⏳ {msg}")
+            await ctx.respond(f"⏳ {msg}")
             return
 
         # Load warnings for user
@@ -230,7 +230,7 @@ class ModerationPlugin(Plugin):
         warn_count = len(warnings[user_id_str])
         auto_mute_threshold = cfg.get("auto_warn_threshold", 3)
 
-        await ctx.send(f"⚠️ Warned {user.mention}. Warning #{warn_count}")
+        await ctx.respond(f"⚠️ Warned {user.mention}. Warning #{warn_count}")
         await self._log_moderation(ctx, "warn", user, reason)
 
         # Auto-mute if threshold reached
@@ -240,7 +240,7 @@ class ModerationPlugin(Plugin):
             if mute_role and member:
                 try:
                     await member.add_roles(mute_role, reason=f"Auto-muted after {warn_count} warnings")
-                    await ctx.send(f"🔇 Auto-muted {user.mention} (warning threshold reached)")
+                    await ctx.respond(f"🔇 Auto-muted {user.mention} (warning threshold reached)")
                 except discord.Forbidden:
                     logger.warning("Cannot add mute role to %s", user.id)
 
@@ -252,7 +252,7 @@ class ModerationPlugin(Plugin):
         user_warnings = all_warnings.get(str(user.id), [])
 
         if not user_warnings:
-            await ctx.send(f"✅ {user.mention} has no warnings")
+            await ctx.respond(f"✅ {user.mention} has no warnings")
             return
 
         embed = discord.Embed(
@@ -268,63 +268,63 @@ class ModerationPlugin(Plugin):
                 inline=False,
             )
 
-        await ctx.send_embed_from_dict(embed.to_dict())
+        await ctx.respond(embed=embed)
 
     @slash(description="Add mute role to a user", guild_only=True)
     async def mute(self, ctx: Context, user: discord.User, reason: str = None) -> None:
         """Mute a user by adding mute role."""
         if not ctx.user.guild_permissions.manage_roles:
-            await ctx.send("❌ You lack `manage_roles` permission")
+            await ctx.respond("❌ You lack `manage_roles` permission")
             return
 
         member = ctx.guild.get_member(user.id)
         if not member:
-            await ctx.send(f"❌ {user.mention} is not in this server")
+            await ctx.respond(f"❌ {user.mention} is not in this server")
             return
 
         mute_role = await self._get_or_create_mute_role(ctx.guild)
         if not mute_role:
-            await ctx.send("❌ Cannot create or find mute role")
+            await ctx.respond("❌ Cannot create or find mute role")
             return
 
         if mute_role in member.roles:
-            await ctx.send(f"ℹ️ {user.mention} is already muted")
+            await ctx.respond(f"ℹ️ {user.mention} is already muted")
             return
 
         try:
             await member.add_roles(mute_role, reason=reason or "Muted by moderator")
-            await ctx.send(f"🔇 Muted {user.mention}")
+            await ctx.respond(f"🔇 Muted {user.mention}")
             await self._log_moderation(ctx, "mute", user, reason)
         except discord.Forbidden:
-            await ctx.send("❌ I lack permission to manage roles")
+            await ctx.respond("❌ I lack permission to manage roles")
         except discord.HTTPException as e:
-            await ctx.send(f"❌ Failed to mute user: {e}")
+            await ctx.respond(f"❌ Failed to mute user: {e}")
 
     @slash(description="Remove mute role from a user", guild_only=True)
     async def unmute(self, ctx: Context, user: discord.User, reason: str = None) -> None:
         """Unmute a user by removing mute role."""
         if not ctx.user.guild_permissions.manage_roles:
-            await ctx.send("❌ You lack `manage_roles` permission")
+            await ctx.respond("❌ You lack `manage_roles` permission")
             return
 
         member = ctx.guild.get_member(user.id)
         if not member:
-            await ctx.send(f"❌ {user.mention} is not in this server")
+            await ctx.respond(f"❌ {user.mention} is not in this server")
             return
 
         mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
         if not mute_role or mute_role not in member.roles:
-            await ctx.send(f"ℹ️ {user.mention} is not muted")
+            await ctx.respond(f"ℹ️ {user.mention} is not muted")
             return
 
         try:
             await member.remove_roles(mute_role, reason=reason or "Unmuted by moderator")
-            await ctx.send(f"🔊 Unmuted {user.mention}")
+            await ctx.respond(f"🔊 Unmuted {user.mention}")
             await self._log_moderation(ctx, "unmute", user, reason)
         except discord.Forbidden:
-            await ctx.send("❌ I lack permission to manage roles")
+            await ctx.respond("❌ I lack permission to manage roles")
         except discord.HTTPException as e:
-            await ctx.send(f"❌ Failed to unmute user: {e}")
+            await ctx.respond(f"❌ Failed to unmute user: {e}")
 
     @slash(description="View moderation settings", guild_only=True)
     async def mod_config(self, ctx: Context) -> None:
@@ -342,4 +342,4 @@ class ModerationPlugin(Plugin):
             inline=False,
         )
 
-        await ctx.send_embed_from_dict(embed.to_dict())
+        await ctx.respond(embed=embed)

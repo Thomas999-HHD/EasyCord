@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 import logging
 from typing import Callable, Any
 
@@ -10,6 +11,7 @@ import discord
 from discord import app_commands
 
 from .builtin_plugins import build_builtin_plugins
+from .context import Context
 from .database import DatabaseConfig, EasyCordDatabase, MemoryDatabase, SQLiteDatabase
 from .i18n import LocalizationManager
 from .conversation_memory import ConversationMemory
@@ -77,6 +79,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         auto_translator: Callable[[str, str, str], str | None] | None = None,
         ai_provider=None,
         enable_conversation_memory: bool = False,
+        enable_health_command: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -119,6 +122,9 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         )
         if load_builtin_plugins:
             self.load_builtin_plugins()
+        if enable_health_command:
+            self._register_health_command()
+        self._start_time = time.time()
 
     # ── Interaction inspection and command sync planning ──────
 
@@ -211,6 +217,70 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
         self.tree.add_command(group)
+    
+    def _register_health_command(self) -> None:
+        """Register the global ``/health`` command."""
+
+        async def health(ctx: Context) -> None:
+            from . import __version__
+            import asyncio
+            import threading
+
+            # Calculate uptime
+            uptime = time.time() - self._start_time
+            hours, rem = divmod(int(uptime), 3600)
+            minutes, seconds = divmod(rem, 60)
+
+            # Measure event loop latency
+            loop = asyncio.get_running_loop()
+            start = loop.time()
+            await asyncio.sleep(0)
+            loop_latency = (loop.time() - start) * 1000
+
+            embed = discord.Embed(
+                title="Bot Health & Telemetry",
+                color=discord.Color.green(),
+                timestamp=discord.utils.utcnow(),
+            )
+            embed.add_field(name="API Latency", value=f"{round(self.latency * 1000)}ms")
+            embed.add_field(name="Loop Latency", value=f"{loop_latency:.2f}ms")
+            embed.add_field(name="Uptime", value=f"{hours}h {minutes}m {seconds}s")
+            embed.add_field(name="Guilds", value=str(len(self.guilds)))
+            embed.add_field(name="Threads", value=str(threading.active_count()))
+
+            # Memory usage (requires psutil)
+            try:
+                import psutil
+                process = psutil.Process()
+                mem = process.memory_info().rss / (1024 * 1024)
+                embed.add_field(name="Memory", value=f"{mem:.1f} MB")
+            except ImportError:
+                pass
+
+            registry = self.registry.grouped()
+            counts = [f"{k.title()}: {len(v)}" for k, v in registry.items()]
+            embed.add_field(name="Registry", value="\n".join(counts))
+            embed.add_field(name="Database", value=type(self.db).__name__)
+            embed.add_field(name="Version", value=f"v{__version__}")
+
+            if self._plugins:
+                plugin_list = []
+                for p in self._plugins:
+                    ver = getattr(p, "version", "1.0.0")
+                    plugin_list.append(f"{p.name} (v{ver})")
+                embed.add_field(
+                    name="Plugins", value="\n".join(plugin_list), inline=False
+                )
+
+            await ctx.respond(embed=embed, ephemeral=True)
+
+        self._register_slash(
+            health,
+            name="health",
+            description="Show bot health and status",
+            guild_id=None,
+            ephemeral=True,
+        )
 
     def _create_database(
         self,
@@ -264,6 +334,23 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                 await plugin.on_ready()
             except Exception:
                 logger.exception("Error calling on_ready for %s", plugin.__class__.__name__)
+        
+        # Startup diagnostics summary
+        from . import __version__
+        diag = [
+            f"EasyCord v{__version__}",
+            f"Guilds: {len(self.guilds)}",
+            f"Plugins: {len(self._plugins)}",
+            f"Commands: {len(self.registry.slash_commands)}",
+            f"Components: {len(self.registry.components)}",
+            f"DB: {type(self.db).__name__.replace('Database', '')}",
+            f"Sync Mode: {'Guild' if self._sync_guild_id else 'Global'}",
+        ]
+        print("\n" + "─" * 30)
+        for line in diag:
+            print(f" {line}")
+        print("─" * 30 + "\n")
+        
         logger.info("Logged in as %s (ID: %s)", self.user, self.user.id)  # type: ignore[union-attr]
 
     async def close(self) -> None:  # type: ignore[override]

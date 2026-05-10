@@ -1,55 +1,62 @@
 # Changelog
 
-## EasyCord v5.2.0
+## EasyCord v5.2.0 - 2026-05-10
 
-### Highlights
+### Added
+- Centralized `InteractionRegistry` for slash commands, context menus, components, modals, and autocomplete callbacks.
+- Command sync planning with dry-run support, duplicate detection, and safer destructive-sync handling via `bot.plan_command_sync()` and `bot.sync_commands(dry_run=True)`.
+- Dynamic component routing with typed route parameters, e.g., `@component("ticket:close:{ticket_id:int}")`.
+- Autocomplete callback registration and testing support via `@autocomplete`.
+- `@slash_command` as a compatibility alias for `@slash`.
+- Reusable option validators: `Duration`, `URL`, `Snowflake`, `Range`, `Regex`, and `ChoiceSet`.
+- **Telemetry**: Global `/health` command now includes real-time telemetry: API latency, event loop latency (congestion monitoring), resident memory usage (via optional `psutil`), active thread counts, and plugin versions.
+- **Memory Safety**: Added memory-pruning to `LevelsPlugin` XP cooldown cache and pagination to `TagsPlugin` tag list to prevent resource exhaustion and API limit errors.
 
-- Added a centralized InteractionRegistry for slash commands, context menus, components, modals, and autocomplete callbacks.
-- Added command sync planning with dry-run support, duplicate detection, and safer destructive-sync handling.
-- Added dynamic component routing with typed route parameters, including patterns such as `ticket:close:{ticket_id:int}`.
-- Added autocomplete callback registration and testing support.
-- Added `slash_command` as a compatibility alias for `slash`.
-- Added reusable option validators for duration, URL, snowflake IDs, ranges, regex patterns, and choice sets.
-- Improved task supervision and plugin-owned interaction cleanup.
+### Changed
+- Refactored Plugin instance tracking to use unique `_instance_id` values instead of class names, preventing state cross-pollution.
+- Updated `InteractionRegistry` to compare structural segments of dynamic component patterns for collision detection.
+- Bumped minimum required `discord.py` version to `>=2.4.0` for `AppInstallationType` support.
+- Standardized all bundled plugins to use `ctx.respond()` instead of deprecated `ctx.send_embed_from_dict()`.
 
-### Bug Fixes
+### Fixed
+- **Core Stability**: Fixed a critical infinite recursion bug in `LocalizationManager` when reporting missing keys in `STRICT` mode.
+- **Command Registration**: Fixed global `/health` command not being registered in the tree.
+- **Plugin Resilience**: Resolved `StarboardPlugin` duplicate archival bug and missing configuration slash commands.
+- **Config Handling**: Fixed `BotConfig.from_env()` syntax error and logic gap where `log_level` overrides were ignored.
+- **Bug Fixes**: Unified error pipeline: exceptions from components, modals, and autocomplete now route through `plugin.on_error` then `bot.on_error`.
+- Autocomplete failures now return an empty list instead of bubbling exceptions.
+- Task cancellation during plugin unload is now handled as a normal lifecycle event.
+- Fixed legacy component-prefix matches bypassing plugin-scoped error handlers.
+- Fixed choice validators crashing on mixed-type choice sets.
 
-- Unified the error pipeline for components, modals, autocomplete callbacks, and background tasks.
-- Exceptions from these paths now route through `plugin.on_error` first, then `bot.on_error`, with logging as fallback.
-- Autocomplete failures now safely return an empty suggestion list instead of bubbling raw exceptions.
-- Task cancellation during plugin unload is treated as a normal lifecycle event, not a crash.
-- Fixed legacy component-prefix fallback matches dropping their registry entry and causing the error router to skip plugin-scoped handlers.
-- Replaced blanket `TypeError` handling in autocomplete callbacks with precise signature inspection (`inspect.signature`) at registration time.
-- Updated `InteractionRegistry` to compare parsed literal/type structural segments (ignoring named regex groups) when rejecting dynamic component collisions.
-- Refactored Plugin instance tracking to use unique `_instance_id` values instead of class names, preventing cross-pollution when loading multiple instances of the same plugin class.
-- Fixed config override evaluation for `auto_sync` so `"false"` strings parse as `False` instead of evaluating to `True`.
-- Updated choice validators to sort mixed-type choice sets using `key=str` to prevent crash on mismatched types.
-- Bumped minimum required `discord.py` version to `>=2.4.0` in `pyproject.toml` for `AppInstallationType` decorator support.
+### Compatibility
+- `discord.py >= 2.4.0` is now required.
+- `InteractionRegistry` replaces `CommandTree` as the authoritative internal metadata store.
 
-> v5.2.0 focuses on framework architecture and developer experience. It makes EasyCord’s interaction system inspectable, safer to reload, easier to sync, and more consistent under failure.
+### Migration Notes
+- **Interaction Registry**: Access registered metadata via `bot.registry` instead of inspecting `bot.tree` directly for EasyCord-specific logic.
+- **Plugin IDs**: Plugins now use `_instance_id` (e.g., `MyPlugin_12345`) for registration. If you relied on the class name for reloading, use the new ID or class name (fallback supported).
+- **Dynamic Routes**: Ensure dynamic component patterns do not overlap. The registry now performs strict shape-based collision detection.
+- **Autocomplete**: Signatures are now validated at registration. Ensure callbacks accept `(ctx, current, options)` or `(current)`.
+
+### Verification
+- `pytest tests/` -> 472 passed.
 
 ---
 
 ## EasyCord v5.1.2 - 2026-05-07
 
-### Bug Fixes
-- Fixed `BotConfig.build_bot()` so `db_backend="memory"` is honored instead of falling back to environment/default database settings.
-- Added guild-scoped command sync support for `BotConfig.guild_id`, so development guild syncs stay instant and do not publish commands globally.
-- Fixed `BotConfig.from_file()` precedence so environment values are overridden by file values, and explicit keyword overrides win last, including merged `extra` values.
-- Added `Context.send()` as a compatibility alias for `Context.respond()` because several bundled plugins use `ctx.send(...)`.
-- Corrected Discord user-install context metadata to use the current `discord.py` `dm_channel` flag.
-- Exported `command_error` and `describe` in `easycord.__all__`.
+### Added
+- Config-driven startup via `BotConfig.from_env()` and `BotConfig.from_file()`.
+- `easycord.testing.FakeContext` and `easycord.testing.invoke()` for unit-testing.
+- Command guards: `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`.
+- `Context.send()` as a compatibility alias for `Context.respond()`.
 
-### New
-- Added config-driven startup via `BotConfig.from_env()` and `BotConfig.from_file()`.
-- Added `easycord.testing.FakeContext` and `easycord.testing.invoke()` for unit-testing commands without Discord.
-- Added command guard decorators: `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`.
-- Added plugin-scoped `Plugin.on_error()` handling and context helpers for app context, entitlements, message forwarding, silent responses, and suppressing embeds.
-
-### Docs & Packaging
-- Updated README, getting-started, architecture, and agent notes for the v5.1.2 APIs.
-- Included docs, examples, context notes, and agent notes in source distributions so README links resolve from packaged artifacts.
-- Removed accidental local CI log/test artifacts from release scope.
+### Fixed
+- `BotConfig.build_bot()` now correctly honors `db_backend="memory"`.
+- `BotConfig.from_file()` precedence: Env -> File -> Explicit.
+- Guild-scoped command sync via `BotConfig.guild_id`.
+- Discord user-install context metadata for current `discord.py` versions.
 
 ### Verification
 - `pytest tests/` -> 461 passed.
@@ -58,59 +65,39 @@
 
 ## EasyCord v5.1.1 - 2026-05-06
 
-### Bug Fixes
-- Fixed `LevelsPlugin._award_xp` cooldown sentinel — default of `0.0` caused the first-message XP award to be silently blocked on freshly-booted CI runners and any host where `time.monotonic()` starts below `cooldown_seconds`. Changed to `float("-inf")` so a user who has never sent a message always passes the cooldown gate.
-
-### CI & Infra
-- Corrected GitHub Actions versions across all three workflows — `actions/checkout@v6` and `actions/setup-python@v6` do not exist and resolved unpredictably. Pinned to `actions/checkout@v4` and `actions/setup-python@v5`.
-
-### Verification
-- `pytest tests/` → 411 passed.
+### Fixed
+- `LevelsPlugin` XP cooldown sentinel changed from `0.0` to `float("-inf")` to fix first-message blocking on new runners.
 
 ---
 
 ## EasyCord v5.1.0 - 2026-05-06
 
-### Bug Fixes
-- Fixed `LevelsPlugin` role reward assignment — `isinstance(author, discord.Member)` returned `False` on Python 3.11 with specced mocks and in some runtime edge cases; replaced with `hasattr(author, "add_roles")` which is version-agnostic and semantically correct.
-- Fixed orchestrator empty-string output — `result.output or result.error` would fall through to the error branch when the AI returned an empty string (a valid response); now uses `result.output if result.output is not None else result.error`.
-- Fixed `ToolRegistry` role check crash in DMs — when `allowed_roles` was set but `require_guild=False`, accessing `ctx.member.roles` in a DM context raised `AttributeError`; now safely fetches the member from the guild or returns a permission-denied message.
+### Added
+- `OpenClawPlugin` for autonomous AI agent tasks.
 
-### New
-- Added `OpenClawPlugin` — autonomous agent runner with per-guild task history and `/openclaw_task` / `/openclaw_stop` slash commands.
-
-### CI & Infra
-- Pinned GitHub Actions to `actions/checkout@v4` and `actions/setup-python@v5` across all CI workflows — v6 does not exist and resolved unpredictably.
-- Added `test_levels_plugin.py` and `test_openclaw.py` — 411 tests now passing.
-- Added `CLAUDE.md`, `AGENTS.md`, and `context/` architecture and conventions docs.
+### Fixed
+- `LevelsPlugin` role reward assignment using `hasattr(author, "add_roles")` for better compatibility.
+- Orchestrator handling of empty string responses from AI providers.
+- `ToolRegistry` role check crash in DM contexts.
 
 ### Verification
-- `pytest tests/` → 411 passed.
+- `pytest tests/` -> 411 passed.
 
 ---
 
 ## EasyCord v5.0.0 - 2026-05-05
 
-### What's New
-- Promoted EasyCord to a production-stable 5.0.0 release with Python 3.13 classifier support and `easycord.__version__ = "5.0.0"`.
-- Exposed all built-in AI provider classes directly from `easycord` through lazy imports, including Anthropic, OpenAI, Gemini, Groq, Mistral, Hugging Face, Together AI, Ollama, and LiteLLM providers.
-- Expanded `@ai_tool` support so plugin tools can declare safety level, admin/guild requirements, role/user gates, timeouts, and rate limits, then register automatically into `bot.tool_registry`.
-- Added comprehensive regression coverage across context helpers, database behavior, localization, middleware, plugins, server config, utility helpers, and v5 release fixes.
+### Added
+- Production-stable release with Python 3.13 support.
+- Lazy-loaded AI providers exposed directly from `easycord`.
+- Advanced `@ai_tool` metadata (safety, gates, limits).
 
-### Bug Fixes
-- Fixed fallback provider selection so `FallbackStrategy` advances through providers and reports exhaustion correctly.
-- Fixed `ctx.is_admin` usage across tool permissions and AI context building by reading it as a property instead of calling it as a method.
-- Fixed async rate-limit handling by awaiting `ToolLimiter.check_limit`, `reset_user`, and `reset_tool` in helpers and moderation plugins.
-- Fixed AI orchestration compatibility with legacy providers that return plain strings and accept only `query(prompt)`, while still passing tool schemas to tool-aware providers.
-- Fixed AI moderation analysis runs that intentionally have no Discord command context by disabling tool exposure and guarding conversation-memory writes.
-- Fixed built-in role listing so role permissions serialize as a permission value and enabled permission names instead of raising at runtime.
-- Fixed Discord context state snapshots to use `ctx.user` and `ctx.member` instead of the nonexistent `ctx.author` attribute.
-- Replaced deprecated event-loop usage in AI providers with `asyncio.get_running_loop()`.
-
-### Release Assets
-- `EasyCord-v5.0.0.zip`: clean installable package archive with `easycord/`, README, changelog, license, package metadata, and context notes.
-- `EasyCord-v5.0.0-dev.zip`: development and expansion archive with source, tests, package metadata, context notes, and sanitized development notes.
+### Fixed
+- `FallbackStrategy` provider rotation logic.
+- `ctx.is_admin` accessed as property instead of method.
+- `ToolLimiter` async execution and locking.
+- `asyncio.get_event_loop()` deprecation fixes.
 
 ### Verification
-- `py -3 -m pytest tests` -> 352 passed.
-- Curated zip verification -> no nested package folder, no embedded archives, no cache files, no system-specific paths, and no personal information.
+- `pytest tests/` -> 352 passed.
+

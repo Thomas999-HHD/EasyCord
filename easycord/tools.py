@@ -33,6 +33,7 @@ class ToolDef:
     require_admin: bool = False
     allowed_roles: list[int] = field(default_factory=list)
     allowed_users: list[int] = field(default_factory=list)
+    permissions: list[str] = field(default_factory=list)
     timeout_ms: int = 5000
     rate_limit: RateLimit | None = None
 
@@ -76,6 +77,7 @@ class ToolRegistry:
         require_admin: bool = False,
         allowed_roles: list[int] | None = None,
         allowed_users: list[int] | None = None,
+        permissions: list[str] | None = None,
         timeout_ms: int = 5000,
         rate_limit: RateLimit | None = None,
     ) -> None:
@@ -93,6 +95,7 @@ class ToolRegistry:
             require_admin=require_admin,
             allowed_roles=allowed_roles or [],
             allowed_users=allowed_users or [],
+            permissions=permissions or [],
             timeout_ms=timeout_ms,
             rate_limit=rate_limit,
         )
@@ -153,6 +156,19 @@ class ToolRegistry:
 
         if tool.allowed_users and ctx.user.id not in tool.allowed_users:
             return False, "User not allowed"
+
+        if tool.permissions:
+            if not ctx.guild:
+                return False, f"Requires permission(s): {tool.permissions} (server-only)"
+            member = ctx.member
+            if member is None:
+                return False, "Member not found in guild context"
+            missing = [
+                p for p in tool.permissions
+                if not getattr(member.guild_permissions, p, False)
+            ]
+            if missing:
+                return False, f"Missing permission(s): {', '.join(missing)}"
 
         return True, None
 

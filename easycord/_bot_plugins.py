@@ -160,6 +160,7 @@ class _PluginsMixin:
                         require_admin=getattr(method, "_ai_tool_require_admin", False),
                         allowed_roles=getattr(method, "_ai_tool_allowed_roles", []),
                         allowed_users=getattr(method, "_ai_tool_allowed_users", []),
+                        permissions=getattr(method, "_ai_tool_permissions", []),
                         timeout_ms=getattr(method, "_ai_tool_timeout_ms", 5000),
                         rate_limit=rate_limit_obj,
                     )

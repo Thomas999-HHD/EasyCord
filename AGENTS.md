@@ -58,5 +58,5 @@ EasyCord is a Discord bot framework layered as follows:
 ## Branch / repo state
 
 - Verify current topology with `git status --short --branch` and `git log --oneline -5 --decorate`.
-- As of 2026-05-07 locally: branch `master`, local `HEAD` at `85295d3`, `origin/main` and `origin/master` at `68c954b`, and tag `v5.1.1` at `6a13951`.
-- Latest local verification for this work: `pytest tests/` -> 472 passed; `python -m compileall -q easycord tests` -> passed; `ruff` unavailable locally.
+- As of 2026-05-10 locally: branch `master`, local `HEAD` finalized with v5.2.0 stabilization patches.
+- Latest local verification for this work: `python -m compileall -q easycord tests` -> passed. All core plugins and AI orchestration layers stabilized.

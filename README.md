@@ -8,28 +8,79 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.2.0/EasyCord-v5.2.0.zip"`
-2. Create a bot with one slash command.
-3. Split features into plugins once the bot grows.
+1. Install: `pip install easycord`
+2. Create: A bot with one slash command.
+3. Grow: Split features into plugins.
+
+### Architecture
+
+```text
++----------------+      +-------------------+      +------------------+
+|   Discord.py   | <--> |  EasyCord (Bot)   | <--> | InteractionRegistry|
++----------------+      +---------+---------+      +------------------+
+                                  |
+            +-----------+---------+---------+-----------+
+            |           |                   |           |
+      +-----+-----+ +---+-------+     +-----+-----+ +---+-------+
+      |  Plugins  | | Middleware|     | Localization| | Database  |
+      +-----------+ +-----------+     +-------------+ +-----------+
+```
+
+### 5 Minute Quickstart
 
 ```python
 from easycord import Bot
 
 bot = Bot()
-bot.load_builtin_plugins()
 
 @bot.slash(description="Ping the bot")
 async def ping(ctx):
     await ctx.respond("Pong!")
 
-bot.run("YOUR_TOKEN")
+bot.run("TOKEN")
 ```
 
-**Want to see a production bot without AI?** Open [`examples/core-bot.py`](examples/core-bot.py).
+### Advanced Examples
 
-For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md) (5-minute walkthrough).
+#### 1. Creating a Plugin
+```python
+from easycord import Plugin, slash
 
-Release links: [v5.2.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.2.0) · [Changelog](CHANGELOG.md) · [v5.1.2 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.2) · [v5.1.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.1) · [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.0) · [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0)
+class Fun(Plugin):
+    @slash(description="Greets the user")
+    async def greet(self, ctx):
+        await ctx.respond(f"Hello {ctx.user.display_name}!")
+
+bot.add_plugin(Fun())
+```
+
+#### 2. Components & Modals
+```python
+from easycord import component, modal
+
+@bot.component("my_button")
+async def on_button(ctx):
+    await ctx.respond("Button clicked!", ephemeral=True)
+
+@bot.modal("my_modal")
+async def on_modal(ctx, name: str):
+    await ctx.respond(f"Received: {name}")
+```
+
+#### 3. Testing with FakeContext
+```python
+from easycord.testing import FakeContext
+
+async def test_my_logic():
+    ctx = FakeContext.make()
+    await my_command(ctx)
+    ctx.assert_content("Expected response")
+```
+
+For more, see [examples/](examples/) and [docs/](docs/).
+Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
+
+Release links: [v5.2.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.2.0) · [Changelog](CHANGELOG.md)
 
 ## New in v5.2.0 (Current Release)
 
@@ -39,7 +90,8 @@ Release links: [v5.2.0 release](https://github.com/rolling-codes/EasyCord/releas
 - Added `bot.inspect_interactions()`, `bot.plan_command_sync(...)`, and `bot.sync_commands(..., dry_run=True)` for debugging registrations and previewing sync changes before touching Discord.
 - Added dynamic component routes such as `@component("ticket:close:{ticket_id:int}")` with typed variables, TTL metadata, and collision checks.
 
-**Developer debugging:**
+**Developer debugging & Telemetry:**
+- Added a global `/health` command with real-time telemetry: API latency, event loop latency (congestion monitoring), resident memory usage (via `psutil`), and active thread counts.
 - Added `@autocomplete("option", command="name")` and `easycord.testing.invoke_autocomplete(...)`.
 - Added option validators: `Duration`, `URL`, `Snowflake`, `Range`, `Regex`, and `ChoiceSet`.
 - Added task supervision snapshots via `bot.task_statuses()` plus optional task restart/backoff metadata.

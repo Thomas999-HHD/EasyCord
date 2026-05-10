@@ -161,9 +161,11 @@ class InteractionRegistry:
     ) -> InteractionEntry:
         if custom_id in self.modals:
             existing = self.modals[custom_id]
+            plugin = existing.source or "Bot"
+            func = existing.callback.__name__
             raise ValueError(
-                f"Modal ID {custom_id!r} already registered by "
-                f"{existing.source or 'Bot'}:{existing.callback.__name__}"
+                f"Modal ID {custom_id!r} already registered by {plugin}:{func}. "
+                f"Ensure your modal IDs are unique across all plugins."
             )
         entry = InteractionEntry(
             interaction_type="modal",
@@ -215,9 +217,11 @@ class InteractionRegistry:
         key = f"{self._scope_key(guild_id)}:{name}"
         if key in bucket:
             existing = bucket[key]
+            plugin = existing.source or "Bot"
+            func = existing.callback.__name__
             raise ValueError(
-                f"{interaction_type} {name!r} already registered by "
-                f"{existing.source or 'Bot'}:{existing.callback.__name__}"
+                f"{interaction_type.replace('_', ' ').title()} {name!r} already registered by {plugin}:{func}. "
+                f"Slash commands and context menus must have unique names."
             )
         entry = InteractionEntry(
             interaction_type=interaction_type,
@@ -259,9 +263,11 @@ class InteractionRegistry:
         custom_id = entry.name
         if custom_id in self.components:
             existing = self.components[custom_id]
+            plugin = existing.source or "Bot"
+            func = existing.callback.__name__
             raise ValueError(
-                f"Component ID {custom_id!r} already registered by "
-                f"{existing.source or 'Bot'}:{existing.callback.__name__}"
+                f"Component ID {custom_id!r} already registered by {plugin}:{func}. "
+                f"Ensure your custom_ids are unique."
             )
         def _shape(pattern: str) -> str:
             return re.sub(r"\?P<[^>]+>", "", pattern)
@@ -270,18 +276,19 @@ class InteractionRegistry:
             if existing.regex is not None and entry.regex is not None:
                 if _shape(existing.regex.pattern) == _shape(entry.regex.pattern):
                     raise ValueError(
-                        f"Dynamic component pattern {custom_id!r} collides with "
-                        f"{existing.name!r}"
+                        f"Dynamic component pattern {custom_id!r} from {entry.source or 'Bot'} "
+                        f"collides with pattern {existing.name!r} from {existing.source or 'Bot'}. "
+                        f"They share the same underlying structure: {_shape(entry.regex.pattern)}"
                     )
             elif existing.regex is not None and existing.regex.fullmatch(custom_id):
                 raise ValueError(
-                    f"Static component ID {custom_id!r} collides with dynamic "
-                    f"pattern {existing.name!r}"
+                    f"Static component ID {custom_id!r} from {entry.source or 'Bot'} "
+                    f"collides with dynamic pattern {existing.name!r} from {existing.source or 'Bot'}."
                 )
             elif entry.regex is not None and entry.regex.fullmatch(existing.name):
                 raise ValueError(
-                    f"Dynamic component pattern {custom_id!r} collides with static "
-                    f"ID {existing.name!r}"
+                    f"Dynamic component pattern {custom_id!r} from {entry.source or 'Bot'} "
+                    f"collides with static ID {existing.name!r} from {existing.source or 'Bot'}."
                 )
 
     @staticmethod

@@ -134,7 +134,7 @@ class SuggestionsPlugin(Plugin):
             description="\n".join(lines),
             color=discord.Color.blurple(),
         )
-        await ctx.send_embed_from_dict(embed.to_dict())
+        await ctx.respond(embed=embed)
 
     @slash(description="Approve a suggestion", guild_only=True)
     async def suggestion_approve(self, ctx: Context, suggestion_id: int) -> None:

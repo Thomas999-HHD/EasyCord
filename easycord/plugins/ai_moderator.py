@@ -255,7 +255,7 @@ class AIModeratorPlugin(Plugin):
         embed.add_field(name="Action Level", value=cfg.get("action_level", "unknown"), inline=True)
         embed.add_field(name="Confidence Threshold", value=f"{cfg.get('confidence_threshold', 0.85)*100:.0f}%", inline=True)
         embed.add_field(name="Rules", value=", ".join(cfg.get("rules", [])), inline=False)
-        await ctx.send_embed_from_dict(embed.to_dict())
+        await ctx.respond(embed=embed)
 
     @slash(description="Set confidence threshold (0.0-1.0)", guild_only=True)
     async def mod_threshold(self, ctx: Context, threshold: float) -> None:

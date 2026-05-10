@@ -47,8 +47,6 @@ class StarboardPlugin(Plugin):
     def __init__(self):
         super().__init__()
         self.config = PluginConfigManager(".easycord/starboard")
-        # Track archived message IDs: {guild_id: {message_id: starboard_post_id}}
-        self._archived: dict[int, dict[int, int]] = {}
 
     async def on_load(self) -> None:
         """Initialize starboard plugin."""
@@ -62,10 +60,55 @@ class StarboardPlugin(Plugin):
         """Update starboard config atomically."""
         return await self.config.update(guild_id, "starboard", **kwargs)
 
+    async def _get_archived(self, guild_id: int) -> dict[str, int]:
+        """Get archived messages map for guild."""
+        cfg_obj = await self.config.store.load(guild_id)
+        return cfg_obj.get_other("archived_messages", {})
+
+    async def _set_archived(self, guild_id: int, message_id: int, post_id: int) -> None:
+        """Store archived message mapping."""
+        cfg_obj = await self.config.store.load(guild_id)
+        archived = cfg_obj.get_other("archived_messages", {})
+        archived[str(message_id)] = post_id
+        cfg_obj.set_other("archived_messages", archived)
+        await self.config.store.save(cfg_obj)
+
+    async def _remove_archived(self, guild_id: int, message_id: int) -> None:
+        """Remove archived message mapping."""
+        cfg_obj = await self.config.store.load(guild_id)
+        archived = cfg_obj.get_other("archived_messages", {})
+        archived.pop(str(message_id), None)
+        cfg_obj.set_other("archived_messages", archived)
+        await self.config.store.save(cfg_obj)
+
+    async def _get_archived(self, guild_id: int) -> dict[str, int]:
+        """Get archived messages map for guild."""
+        cfg_obj = await self.config.store.load(guild_id)
+        return cfg_obj.get_other("archived_messages", {})
+
+    async def _set_archived(self, guild_id: int, message_id: int, post_id: int) -> None:
+        """Store archived message mapping."""
+        cfg_obj = await self.config.store.load(guild_id)
+        archived = cfg_obj.get_other("archived_messages", {})
+        archived[str(message_id)] = post_id
+        cfg_obj.set_other("archived_messages", archived)
+        await self.config.store.save(cfg_obj)
+
+    async def _remove_archived(self, guild_id: int, message_id: int) -> None:
+        """Remove archived message mapping."""
+        cfg_obj = await self.config.store.load(guild_id)
+        archived = cfg_obj.get_other("archived_messages", {})
+        archived.pop(str(message_id), None)
+        cfg_obj.set_other("archived_messages", archived)
+        await self.config.store.save(cfg_obj)
+
     async def _archive_message(self, message: discord.Message, reaction_count: int) -> None:
-        """Post message to starboard."""
+        """Post or update message on starboard."""
         if not message.guild:
             return
+
+        archived = await self._get_archived(message.guild.id)
+        existing_post_id = archived.get(str(message.id))
 
         cfg = await self._get_config(message.guild.id)
         channel_id = cfg.get("channel_id")
@@ -86,9 +129,9 @@ class StarboardPlugin(Plugin):
             timestamp=message.created_at,
         )
         embed.set_author(name=message.author.display_name, icon_url=message.author.avatar.url if message.author.avatar else None)
-        embed.add_field(name="Reactions", value=f"⭐ {reaction_count}", inline=True)
+        embed.add_field(name="Reactions", value=f"{cfg.get('emoji', '⭐')} {reaction_count}", inline=True)
         embed.add_field(
-            name="Channel",
+            name="Source",
             value=f"[Jump to message]({message.jump_url})",
             inline=True,
         )
@@ -100,10 +143,16 @@ class StarboardPlugin(Plugin):
                 embed.set_image(url=img.url)
 
         try:
+            if existing_post_id:
+                try:
+                    post = await channel.fetch_message(existing_post_id)
+                    await post.edit(embed=embed)
+                    return
+                except discord.NotFound:
+                    pass # Post was deleted, send a new one
+
             post = await channel.send(embed=embed)
-            if message.guild.id not in self._archived:
-                self._archived[message.guild.id] = {}
-            self._archived[message.guild.id][message.id] = post.id
+            await self._set_archived(message.guild.id, message.id, post.id)
             logger.info("Archived message %s to starboard", message.id)
         except discord.Forbidden:
             logger.error("No permission to post to starboard channel %s", channel_id)
@@ -112,7 +161,9 @@ class StarboardPlugin(Plugin):
 
     async def _unarchive_message(self, guild_id: int, message_id: int) -> None:
         """Remove message from starboard."""
-        if guild_id not in self._archived or message_id not in self._archived[guild_id]:
+        archived = await self._get_archived(guild_id)
+        post_id = archived.get(str(message_id))
+        if not post_id:
             return
 
         cfg = await self._get_config(guild_id)
@@ -129,16 +180,14 @@ class StarboardPlugin(Plugin):
         if not channel:
             return
 
-        post_id = self._archived[guild_id][message_id]
-
         try:
             post = await channel.fetch_message(post_id)
             await post.delete()
-            del self._archived[guild_id][message_id]
+            await self._remove_archived(guild_id, message_id)
             logger.info("Removed message %s from starboard", message_id)
         except discord.NotFound:
             # Already deleted, just clean up
-            del self._archived[guild_id][message_id]
+            await self._remove_archived(guild_id, message_id)
         except discord.Forbidden:
             logger.error("No permission to delete from starboard")
         except discord.HTTPException as e:
@@ -219,3 +268,42 @@ class StarboardPlugin(Plugin):
 
         except (discord.NotFound, discord.Forbidden, discord.HTTPException):
             pass
+
+    # ── Slash commands ────────────────────────────────────────
+
+    from easycord import slash, Context
+
+    @slash(description="Set the channel for starboard messages.", permissions=["manage_guild"], guild_only=True)
+    async def starboard_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        await self._update_config(ctx.guild.id, channel_id=channel.id)
+        await ctx.respond(f"Starboard messages will be posted in {channel.mention}.", ephemeral=True)
+
+    @slash(description="Set the emoji to trigger starboard.", permissions=["manage_guild"], guild_only=True)
+    async def starboard_emoji(self, ctx: Context, emoji: str) -> None:
+        await self._update_config(ctx.guild.id, emoji=emoji)
+        await ctx.respond(f"Starboard emoji set to {emoji}.", ephemeral=True)
+
+    @slash(description="Set the reaction threshold for starboard.", permissions=["manage_guild"], guild_only=True)
+    async def starboard_threshold(self, ctx: Context, threshold: int) -> None:
+        if threshold < 1:
+            await ctx.respond("Threshold must be at least 1.", ephemeral=True)
+            return
+        await self._update_config(ctx.guild.id, threshold=threshold)
+        await ctx.respond(f"Starboard threshold set to {threshold}.", ephemeral=True)
+
+    @slash(description="Show the current starboard configuration for this server.", guild_only=True)
+    async def starboard_config(self, ctx: Context) -> None:
+        cfg = await self._get_config(ctx.guild.id)
+        channel_id = cfg.get("channel_id")
+        channel = ctx.guild.get_channel(channel_id) if channel_id else None
+        
+        embed = discord.Embed(
+            title=f"⭐ Starboard Config — {ctx.guild.name}",
+            color=discord.Color.gold(),
+        )
+        embed.add_field(name="Enabled", value="✅" if cfg.get("enabled") else "❌", inline=True)
+        embed.add_field(name="Channel", value=channel.mention if channel else "*not set*", inline=True)
+        embed.add_field(name="Emoji", value=cfg.get("emoji", "⭐"), inline=True)
+        embed.add_field(name="Threshold", value=str(cfg.get("threshold", 3)), inline=True)
+        
+        await ctx.respond(embed=embed, ephemeral=True)

@@ -39,6 +39,12 @@ class Plugin:
         self._instance_id: str = f"{self.__class__.__name__}_{id(self)}"
         if not hasattr(self, "name"):
             self.name = self.__class__.__name__.lower()
+        if not hasattr(self, "version"):
+            self.version = "1.0.0"
+        if not hasattr(self, "author"):
+            self.author = "Unknown"
+        if not hasattr(self, "description"):
+            self.description = "No description provided."
 
     def id(self, raw: str) -> str:
         """Namespace a string with this plugin's name.

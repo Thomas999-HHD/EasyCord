@@ -250,6 +250,7 @@ class LocalizationManager:
             "locale_frequency": {},
         } if track_metrics else {}
         self._chain_cache: dict[str, list[str]] = {}
+        self._reporting = False
         if auto_detect_system_locale:
             self._system_locale = detect_os_locale()
             if self._system_locale:
@@ -678,6 +679,13 @@ class LocalizationManager:
         try:
             return template.format(**kwargs)
         except KeyError as exc:
-            missing = str(exc).strip("'")
-            self.diagnostics.report_invalid_placeholder(key, template, missing)
+            if self._reporting:
+                # If we're already reporting, don't recurse
+                raise
+            self._reporting = True
+            try:
+                missing = str(exc).strip("'")
+                self.diagnostics.report_invalid_placeholder(key, template, missing)
+            finally:
+                self._reporting = False
             raise

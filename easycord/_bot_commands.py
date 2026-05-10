@@ -364,7 +364,18 @@ class _CommandsMixin:
         )
         for param_name, handler in autocomplete_handlers.items():
             sig = inspect.signature(handler)
-            expects_options = len(sig.parameters) >= 3
+            params = list(sig.parameters.values())
+            param_count = len(params)
+            
+            if param_count not in (1, 3):
+                plugin_info = f" in plugin {source_plugin}" if source_plugin else ""
+                raise TypeError(
+                    f"Invalid autocomplete signature for option {param_name!r} "
+                    f"of command {name!r}{plugin_info}. "
+                    f"Expected (current) or (ctx, current, options), got {sig}."
+                )
+            
+            expects_options = param_count == 3
 
             def _make_autocomplete(_h: Callable, _expects_options: bool) -> Callable:
                 async def _ac(
