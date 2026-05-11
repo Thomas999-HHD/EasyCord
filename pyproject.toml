@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "5.4.0"
+version = "6.0.0"
 description = "Production-grade Discord bot framework with AI orchestration, multi-provider LLMs, and permission-gated tool execution"
 readme = "README.md"
 license = "MIT"
@@ -26,14 +26,15 @@ dependencies = [
     "discord.py>=2.4.0",
 ]
 
-# authors = [
-#     { name = "Your Name", email = "you@example.com" },
-# ]
-
 [project.optional-dependencies]
+desktop = [
+    "pywebview>=5.1",
+    "psutil>=5.9",
+]
 dev = [
     "pytest>=7",
     "pytest-asyncio>=0.21",
+    "pytest-mock>=3.10",
     "tomli>=2; python_version < '3.11'",
     "build",
     "twine",

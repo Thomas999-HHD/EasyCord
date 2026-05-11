@@ -274,26 +274,14 @@ class _CommandsMixin:
                 try:
                     await func(ctx, **kwargs)
                 except Exception as exc:
-                    # Priority: per-command → plugin.on_error → global → raise
-                    per_cmd = command_name and getattr(
-                        self, "_command_error_handlers", {}
-                    ).get(command_name)
-                    if per_cmd is not None:
-                        await per_cmd(ctx, exc)
-                        return
-                    plugin = getattr(func, "__self__", None)
-                    if plugin is not None:
-                        from .plugin import Plugin as _Plugin
-                        if isinstance(plugin, _Plugin):
-                            plugin_on_error = type(plugin).on_error
-                            base_on_error = _Plugin.on_error
-                            if plugin_on_error is not base_on_error:
-                                await plugin.on_error(ctx, exc)
-                                return
-                    if self._error_handler is not None:
-                        await self._error_handler(ctx, exc)
-                    else:
-                        raise
+                    # Centralized routing: per-command → plugin.on_error → global → raise/log
+                    await self._dispatch_framework_error(
+                        exc,
+                        ctx=ctx,
+                        command_name=command_name,
+                        plugin_instance=getattr(func, "__self__", None),
+                    )
+                    return
 
             await build_chain(ctx, invoke, self._middleware)()
 

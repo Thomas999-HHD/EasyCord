@@ -82,11 +82,12 @@ class ToolLimiter:
             for key in keys_to_remove:
                 del self._usage[key]
 
-    def get_stats(self) -> dict:
+    async def get_stats(self) -> dict:
         """Get rate limit statistics."""
-        return {
-            "tracked_limits": len(self._usage),
-            "total_calls": sum(
-                len(entry.timestamps) for entry in self._usage.values()
-            ),
-        }
+        async with self._lock:
+            return {
+                "tracked_limits": len(self._usage),
+                "total_calls": sum(
+                    len(entry.timestamps) for entry in self._usage.values()
+                ),
+            }

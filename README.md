@@ -94,6 +94,28 @@ Release links: [v5.4.0 release](https://github.com/rolling-codes/EasyCord/releas
 
 See [`docs/developer-toolkit.md`](docs/developer-toolkit.md).
 
+## Server Adaptation
+
+EasyCord can infer useful per-guild settings from an existing server layout
+when the bot joins. Enable it with `Bot(auto_adapt_guilds=True)` or
+`EASYCORD_AUTO_ADAPT_GUILDS=true` through `BotConfig.from_env()`.
+
+The adaptation is offline and conservative: it reads cached channel and role
+names, stores keys such as `logging`, `welcome`, `announcements`, `rules`,
+`general`, `support`, `admin`, and `moderator` in `ServerConfigStore`, and
+preserves existing config by default. It does not create channels, edit roles,
+sync commands, or call Discord APIs.
+
+```python
+from easycord import Bot
+
+bot = Bot(auto_adapt_guilds=True)
+
+# Available for tests, setup commands, or one-off admin flows:
+plan = bot.plan_guild_adaptation(guild)
+saved = await bot.apply_guild_adaptation(guild)
+```
+
 ## Previous: v5.3.0
 
 **Developer toolkit:**

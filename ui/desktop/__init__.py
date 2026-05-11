@@ -1,0 +1,1 @@
+# EasyCord Desktop UI package
