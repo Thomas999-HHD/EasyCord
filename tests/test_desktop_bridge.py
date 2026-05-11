@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 import pytest
 import threading
 import time
@@ -12,7 +13,9 @@ from unittest.mock import MagicMock, patch
 sys.path.append(str(Path(__file__).parent.parent / "ui" / "desktop"))
 
 try:
+    # pyrefly: ignore [missing-import]
     import webview
+    # pyrefly: ignore [missing-import]
     from main import BotAPI
     WEBVIEW_AVAILABLE = True
 except ImportError:
@@ -115,5 +118,15 @@ def test_exception_masking_security(api):
             api.start_bot(token, "123456789012345678")
     
     # Check logs
+    assert len(api._logs) > 0
     for log in api._logs:
         assert token not in log["msg"]
+
+def test_memory_usage_reporting(api):
+    with patch("main.psutil") as mock_psutil:
+        mock_process = MagicMock()
+        mock_process.memory_info().rss = 100 * 1024 * 1024 # 100 MB
+        mock_psutil.Process.return_value = mock_process
+        
+        mem = api._get_memory_usage()
+        assert mem == 100

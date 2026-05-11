@@ -1,5 +1,14 @@
 # Changelog
 
+## EasyCord v6.0.1 - 2026-05-11
+
+### Fixed
+- **Desktop Bridge Tests**: Hardened `tests/test_desktop_bridge.py` to handle missing optional dependencies (skips automatically if `pywebview` is not installed).
+- **Linter Support**: Added ignore comments for dynamic imports in tests to silence false-positive IDE warnings.
+- **Verification**: Cleaned up test logic for exception masking and memory usage reporting.
+
+---
+
 ## EasyCord v6.0.0 - 2026-05-11
 
 ### Added

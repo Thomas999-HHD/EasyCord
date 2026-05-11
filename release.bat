@@ -1,5 +1,5 @@
 @echo off
-set VERSION=6.0.0
+set VERSION=6.0.1
 echo [1/4] Verifying project (syntax check)...
 python -m compileall -q easycord tests || goto :err
 
