@@ -45,8 +45,8 @@ Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
 Issues         = "https://github.com/rolling-codes/EasyCord/issues"
 Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v5.4.0/EasyCord-v5.4.0.zip"
-Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.4.0"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v6.0.1/EasyCord-v6.0.1.zip"
+Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v6.0.1"
 Changelog      = "https://github.com/rolling-codes/EasyCord/blob/main/CHANGELOG.md"
 
 [project.scripts]

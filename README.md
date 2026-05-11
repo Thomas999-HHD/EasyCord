@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.4.0-blue)
+![Version](https://img.shields.io/badge/v-6.0.1-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -8,9 +8,10 @@
 
 ## Start here
 
-1. Install: `pip install easycord`
+1. Install: `pip install easycord` (or `pip install "easycord[desktop]"` for the Command Center)
 2. Create: A bot with one slash command.
 3. Grow: Split features into plugins.
+4. Manage: Launch the desktop Command Center to monitor your bot.
 
 ### Architecture
 
@@ -80,9 +81,16 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.4.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.4.0) · [Changelog](CHANGELOG.md)
+Release links: [v6.0.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v6.0.1) · [Changelog](CHANGELOG.md)
 
-## New in v5.4.0 (Current Release)
+## New in v6.0.0 (Command Center)
+
+**Desktop Management:**
+- **Command Center**: A React-based desktop application for managing Discord bots locally via `pywebview`.
+- **Hardened BotAPI Bridge**: Secure Python-to-JS communication with explicit state management and thread safety.
+- **Optional Desktop Support**: GUI-related dependencies are now optional. Install via `pip install easycord[desktop]`.
+- **Live Monitoring**: Real-time telemetry (API latency, memory, uptime) and live system log streaming.
+- **Security & Validation**: Automatic token/secret sanitization and strict Snowflake validation for Guild IDs.
 
 **Developer experience:**
 - Stabilized JSON output contracts for `easycord doctor --json`, `easycord inspect --json`, and `easycord sync-plan --json`.
