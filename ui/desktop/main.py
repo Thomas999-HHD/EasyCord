@@ -1,42 +1,46 @@
 """
-EasyCord Desktop — PyWebView shell.
+EasyCord Desktop - PyWebView shell.
 
 Wraps the EasyCord UI (HTML + JSX) in a native Windows window.
 Build to a single .exe via build.bat / build.sh (see README).
 """
 from __future__ import annotations
 
+import asyncio
+import atexit
+import http.server
+import logging
 import os
+import re
+import socket
+import socketserver
 import sys
 import threading
 import time
-import asyncio
-import http.server
-import socketserver
-import socket
+from enum import Enum
 from pathlib import Path
 
 # pyrefly: ignore [missing-import]
 import webview
-import json
-import logging
-from . import bot  # Assuming we can import from parent or local context
+
+from easycord import Bot, __version__ as EASYCORD_VERSION
 
 logger = logging.getLogger("easycord.desktop")
 
 APP_TITLE = "EasyCord"
-APP_VERSION = "6.0.0"
+APP_VERSION = EASYCORD_VERSION
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 820
 PREFERRED_PORT = 17317
+TOKEN_RE = re.compile(r"[a-zA-Z0-9_-]{24,}\.[a-zA-Z0-9_-]{6}\.[a-zA-Z0-9_-]{27,}")
+SECRET_RE = re.compile(r"(?i)(token|secret|api[_-]?key)\s*[:=]\s*\S+")
 
 
 def resource_root() -> Path:
-    """Locate bundled assets (works both in dev and inside PyInstaller --onefile)."""
+    """Locate bundled assets in source, wheel installs, and PyInstaller bundles."""
     base = getattr(sys, "_MEIPASS", None)
     if base:
         return Path(base) / "web"
-    # dev: this file lives in desktop/, assets live one level up
     return Path(__file__).resolve().parent.parent
 
 
@@ -56,21 +60,23 @@ def serve(root: Path, port: int) -> None:
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *_a, **_kw):
-            pass  # silence
+            pass
 
     with socketserver.TCPServer(("127.0.0.1", port), Handler) as httpd:
         httpd.serve_forever()
 
 
-from enum import Enum
-import re
-import atexit
+def sanitize_message(message: str) -> str:
+    message = TOKEN_RE.sub("[REDACTED TOKEN]", message)
+    return SECRET_RE.sub(lambda m: f"{m.group(1)}=[REDACTED]", message)
+
 
 class State(Enum):
     OFFLINE = "offline"
     STARTING = "starting"
     ONLINE = "online"
     STOPPING = "stopping"
+
 
 class BotAPI:
     def __init__(self):
@@ -87,29 +93,26 @@ class BotAPI:
             def __init__(self, logs):
                 super().__init__()
                 self.logs = logs
+
             def emit(self, record):
-                # Sanitize: prevent tokens or secrets from leaking into UI logs
-                msg = record.getMessage()
-                # Basic mask for common token patterns (MTE... or similar)
-                msg = re.sub(r"[a-zA-Z0-9_-]{24,}\.[a-zA-Z0-9_-]{6}\.[a-zA-Z0-9_-]{27,}", "[REDACTED TOKEN]", msg)
-                
                 self.logs.append({
                     "time": time.strftime("%H:%M:%S"),
                     "level": record.levelname,
-                    "msg": msg
+                    "msg": sanitize_message(record.getMessage()),
                 })
                 if len(self.logs) > 100:
                     self.logs.pop(0)
 
         handler = UIHandler(self._logs)
-        # Use easycord logger to capture framework events
         logging.getLogger("easycord").addHandler(handler)
         logging.getLogger("easycord").setLevel(logging.INFO)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
 
     def get_status(self):
         if not self._bot or not self._bot.is_ready():
-            return {"status": self._state, "uptime": 0, "latency": 0, "guilds": 0}
-        
+            return {"status": self._state, "uptime": 0, "latency": 0, "guilds": 0, "memory": 0}
+
         return {
             "status": State.ONLINE.value,
             "uptime": time.time() - self._bot._start_time,
@@ -122,33 +125,29 @@ class BotAPI:
         try:
             import psutil
             return psutil.Process().memory_info().rss / (1024 * 1024)
-        except (ImportError, Exception):
+        except Exception:
             return 0
 
     def start_bot(self, token, guild_id=None):
         with self._lock:
             if self._state != State.OFFLINE.value:
                 return {"error": f"Bot is already in {self._state} state"}
-            
+
             if not token or len(token) < 20:
                 return {"error": "Invalid or missing bot token"}
-            
+
             if guild_id and not re.match(r"^\d{17,20}$", str(guild_id).strip()):
                 return {"error": "Guild ID must be a 17-20 digit snowflake"}
 
             self._state = State.STARTING.value
-        
+
         def run():
             try:
-                from easycord import Bot
                 gid = int(str(guild_id).strip()) if guild_id and str(guild_id).strip() else None
                 self._bot = Bot(sync_guild_id=gid)
                 self._bot.run(token)
             except Exception as e:
-                err_msg = str(e)
-                # Ensure no secrets in the error message
-                err_msg = re.sub(r"[a-zA-Z0-9_-]{24,}\.[a-zA-Z0-9_-]{6}\.[a-zA-Z0-9_-]{27,}", "[REDACTED]", err_msg)
-                logger.error(f"Bot failed: {err_msg}")
+                logger.error("Bot failed: %s", sanitize_message(str(e)))
                 with self._lock:
                     self._state = State.OFFLINE.value
                     self._bot = None
@@ -162,18 +161,18 @@ class BotAPI:
             if not self._bot:
                 self._state = State.OFFLINE.value
                 return {"status": "stopped"}
-            
+
             self._state = State.STOPPING.value
-            
+
             try:
                 if self._bot.loop and self._bot.loop.is_running():
                     asyncio.run_coroutine_threadsafe(self._bot.close(), self._bot.loop)
             except Exception as e:
-                logger.error(f"Error closing bot: {e}")
+                logger.error("Error closing bot: %s", sanitize_message(str(e)))
             finally:
                 self._bot = None
                 self._state = State.OFFLINE.value
-                
+
         return {"status": "stopped"}
 
     def get_logs(self, limit=50):
@@ -187,7 +186,6 @@ def main() -> None:
         raise SystemExit(f"Missing UI bundle at {entry}")
 
     port = find_free_port(PREFERRED_PORT)
-    # FOR SECURITY: Bind only to localhost
     threading.Thread(target=serve, args=(root, port), daemon=True).start()
 
     api = BotAPI()
@@ -200,7 +198,7 @@ def main() -> None:
         min_size=(960, 600),
         background_color="#1a1326",
         resizable=True,
-        js_api=api
+        js_api=api,
     )
     webview.start()
 
