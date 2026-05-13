@@ -25,7 +25,7 @@ function App() {
         <div className="brand">
           <div className="brand-mark v-block">E</div>
           <span>EasyCord</span>
-          <span className="brand-version">v6.0.0</span>
+          <span className="brand-version">v6.1.0</span>
         </div>
 
         <div className="topbar-spacer" />
