@@ -23,6 +23,11 @@ from pathlib import Path
 # pyrefly: ignore [missing-import]
 import webview
 
+try:
+    import psutil
+except ImportError:  # pragma: no cover - optional desktop telemetry dependency
+    psutil = None
+
 from easycord import Bot, __version__ as EASYCORD_VERSION
 
 logger = logging.getLogger("easycord.desktop")
@@ -122,8 +127,9 @@ class BotAPI:
         }
 
     def _get_memory_usage(self):
+        if psutil is None:
+            return 0
         try:
-            import psutil
             return psutil.Process().memory_info().rss / (1024 * 1024)
         except Exception:
             return 0
