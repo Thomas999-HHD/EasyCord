@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "6.0.1"
+version = "6.1.0"
 description = "Production-grade Discord bot framework with AI orchestration, multi-provider LLMs, and permission-gated tool execution"
 readme = "README.md"
 license = "MIT"
@@ -45,22 +45,24 @@ Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
 Issues         = "https://github.com/rolling-codes/EasyCord/issues"
 Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v6.0.1/EasyCord-v6.0.1.zip"
-Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v6.0.1"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v6.1.0/EasyCord-v6.1.0.zip"
+Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v6.1.0"
 Changelog      = "https://github.com/rolling-codes/EasyCord/blob/main/CHANGELOG.md"
 
 [project.scripts]
 easycord = "easycord.cli:main"
+easycord-desktop = "ui.desktop.main:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
-include = ["easycord*"]
+include = ["easycord*", "ui*"]
 exclude = ["tests*", "*.tests*", "*.tests"]
 
 [tool.setuptools.package-data]
 easycord = ["py.typed"]
+ui = ["EasyCord.html", "easycord-ui/*.css", "easycord-ui/*.jsx"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["__pycache__", "*.pyc", "*.pyo"]
