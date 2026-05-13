@@ -57,6 +57,13 @@ _PROVIDER_NAMES = frozenset({
 })
 
 
+def launch_command_center() -> None:
+    """Launch the optional desktop Command Center."""
+    from ui.desktop import launch
+
+    launch()
+
+
 def __getattr__(name: str):
     if name in _PROVIDER_NAMES:
         from easycord.plugins import _ai_providers as _m
@@ -111,6 +118,7 @@ __all__ = [
     "GuildRecord",
     "InfoEmbed",
     "install_type",
+    "launch_command_center",
     "ModalBuilder",
     "message_command",
     "modal",
